@@ -301,6 +301,12 @@ textarea{
 
 .help-content{ font-size:13.5px; line-height:1.5; }
 
+/* ---------------- meu dia: hierarquia (principal > secundário > detalhes) ---------------- */
+.meudia-detalhes{ margin-top:6px; }
+.meudia-detalhes .panel{ padding:14px; }
+.meudia-detalhes .panel-head{ margin-bottom:8px; }
+.meudia-detalhes .panel-head h2{ font-size:13px; color: var(--ink-soft); font-weight:600; }
+
 /* ---------------- dashboard V2 ---------------- */
 .dashboard-greeting{ margin-bottom:16px; }
 .greeting-row{ display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }
