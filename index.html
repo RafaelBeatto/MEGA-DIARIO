@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mega Diário</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ======================= MOBILE HEADER ======================= -->
+<header class="mobile-bar">
+  <button id="btnMenu" class="icon-btn" aria-label="Abrir menu" aria-expanded="false">☰</button>
+  <span class="mobile-title">Mega Diário</span>
+  <button id="btnThemeMobile" class="icon-btn" aria-label="Alternar tema">🌙</button>
+</header>
+
+<div class="app-shell">
+
+  <!-- ======================= SIDEBAR ======================= -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <span class="brand-mark">MD</span>
+      <span class="brand-name">Mega<br>Diário</span>
+    </div>
+
+    <nav class="nav" aria-label="Navegação principal">
+      <div class="nav-row"><button class="nav-item is-active" data-view="meudia"><span class="nav-ico">🏠</span><span>Meu Dia</span></button><button class="nav-help" data-help="meudia" aria-label="Explicar Meu Dia">!</button></div>
+      <div class="nav-row"><button class="nav-item" data-view="semana"><span class="nav-ico">📅</span><span>Semana</span></button><button class="nav-help" data-help="semana" aria-label="Explicar Semana">!</button></div>
+      <div class="nav-row"><button class="nav-item" data-view="diario"><span class="nav-ico">📝</span><span>Diário</span></button><button class="nav-help" data-help="diario" aria-label="Explicar Diário">!</button></div>
+      <div class="nav-row"><button class="nav-item" data-view="estudos"><span class="nav-ico">📚</span><span>Estudos</span></button><button class="nav-help" data-help="estudos" aria-label="Explicar Estudos">!</button></div>
+      <div class="nav-row"><button class="nav-item" data-view="agenda"><span class="nav-ico">🗓️</span><span>Agenda</span></button><button class="nav-help" data-help="agenda" aria-label="Explicar Agenda">!</button></div>
+      <div class="nav-row"><button class="nav-item" data-view="tarefas"><span class="nav-ico">✅</span><span>Tarefas</span></button><button class="nav-help" data-help="tarefas" aria-label="Explicar Tarefas">!</button></div>
+      <div class="nav-row"><button class="nav-item" data-view="rotinas"><span class="nav-ico">🔄</span><span>Rotinas</span></button><button class="nav-help" data-help="rotinas" aria-label="Explicar Rotinas">!</button></div>
+      <div class="nav-row"><button class="nav-item" data-view="metas"><span class="nav-ico">🎯</span><span>Metas</span></button><button class="nav-help" data-help="metas" aria-label="Explicar Metas">!</button></div>
+      <div class="nav-row"><button class="nav-item" data-view="reflexoes"><span class="nav-ico">🧠</span><span>Reflexões</span></button><button class="nav-help" data-help="reflexoes" aria-label="Explicar Reflexões">!</button></div>
+      <div class="nav-row"><button class="nav-item" data-view="evolucao"><span class="nav-ico">📊</span><span>Evolução</span></button><button class="nav-help" data-help="evolucao" aria-label="Explicar Evolução">!</button></div>
+      <div class="nav-row"><button class="nav-item" data-view="memoria"><span class="nav-ico">🔎</span><span>Memória</span></button><button class="nav-help" data-help="memoria" aria-label="Explicar Memória">!</button></div>
+      <div class="nav-row"><button class="nav-item" data-view="config"><span class="nav-ico">⚙️</span><span>Configurações</span></button><button class="nav-help" data-help="config" aria-label="Explicar Configurações">!</button></div>
+    </nav>
+  </aside>
+
+  <div class="scrim" id="scrim"></div>
+
+  <!-- ======================= MAIN ======================= -->
+  <div class="main">
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="topbar-title">
+        <h1 id="pageTitle">Meu Dia</h1>
+        <p id="pageSubtitle" class="muted">O seu dia hoje, num só lugar</p>
+      </div>
+      <div class="topbar-actions">
+        <button class="btn btn-primary" id="btnNewGeneric">＋ Registrar</button>
+        <div class="clock" id="clockBox">
+          <span id="clockTime">--:--</span>
+          <span id="clockDate" class="muted">--/--/----</span>
+        </div>
+        <button class="icon-btn" id="btnTheme" aria-label="Alternar tema">🌙</button>
+      </div>
+    </header>
+
+    <!-- TOAST -->
+    <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+    <!-- ======================= VIEWS ======================= -->
+    <main id="viewport">
+
+      <!-- MEU DIA -->
+      <section class="view" id="view-meudia" data-view="meudia">
+        <div class="section-intro">
+          <div><h1 id="meuDiaTitulo">Hoje</h1><p id="meuDiaSubtitulo" class="muted"></p></div>
+        </div>
+        <div class="quick-register-row" id="quickRegisterRow"></div>
+        <div class="dashboard-spotlight" id="meuDiaAgenda"></div>
+        <div class="two-col">
+          <div class="panel"><div class="panel-head"><h2>📚 Estudos de hoje</h2></div><div id="meuDiaEstudos" class="activity-list"></div></div>
+          <div class="panel"><div class="panel-head"><h2>✅ Tarefas de hoje</h2></div><div id="meuDiaTarefas" class="activity-list"></div></div>
+        </div>
+        <div class="two-col">
+          <div class="panel"><div class="panel-head"><h2>📝 Registros de hoje</h2></div><div id="meuDiaRegistros" class="activity-list"></div></div>
+          <div class="panel"><div class="panel-head"><h2>📊 Resumo do dia</h2></div><div id="meuDiaResumo" class="stat-grid"></div></div>
+        </div>
+      </section>
+
+      <!-- SEMANA -->
+      <section class="view" id="view-semana" data-view="semana" hidden>
+        <div class="section-intro">
+          <div><h1 id="semanaTitulo">Semana</h1><p class="muted">Planeje no domingo, execute durante a semana, revise no domingo seguinte.</p></div>
+          <div class="agenda-actions">
+            <button class="btn btn-ghost" id="semanaPrev">‹ Anterior</button>
+            <button class="btn btn-ghost" id="semanaHojeBtn">Semana atual</button>
+            <button class="btn btn-ghost" id="semanaNext">Próxima ›</button>
+            <button class="btn btn-primary" id="btnFluxoDomingo">🔄 Revisão + planejamento</button>
+          </div>
+        </div>
+        <div id="semanaConteudo"></div>
+      </section>
+
+      <!-- DIÁRIO -->
+      <section class="view" id="view-diario" data-view="diario" hidden>
+        <div class="section-intro">
+          <div><h1>Meu Diário</h1><p>Registre acontecimentos, reflexões, ideias e aprendizados do seu dia a dia.</p></div>
+          <button class="btn btn-primary" data-action="novo-registro-diario">＋ Novo registro</button>
+        </div>
+        <div class="toolbar">
+          <div class="filters" id="filtrosDiario">
+            <input type="search" class="input" data-filter="busca" placeholder="Pesquisar no diário...">
+            <select class="input" data-filter="tipo"><option value="">Tipo: todos</option><option>Acontecimento</option><option>Reflexão</option><option>Ideia</option><option>Aprendizado</option><option>Conquista</option><option>Problema</option><option>Observação</option></select>
+            <input type="date" class="input" data-filter="data" title="Data">
+          </div>
+        </div>
+        <div id="listaDiario" class="activity-list"></div>
+        <div class="empty-state" id="vazioDiario" hidden>Nenhum registro encontrado. Clique em "Novo registro" para começar.</div>
+      </section>
+
+      <!-- ESTUDOS -->
+      <section class="view" id="view-estudos" data-view="estudos" hidden>
+        <div class="section-intro">
+          <div><h1>Meus Estudos</h1><p>Organize matérias, registre sessões de estudo e acompanhe revisões.</p></div>
+          <div class="agenda-actions">
+            <button class="btn btn-ghost" data-action="nova-materia">＋ Nova matéria</button>
+            <button class="btn btn-primary" data-action="nova-sessao">＋ Registrar sessão</button>
+          </div>
+        </div>
+        <div class="stats-grid docs-stats" id="estudosStats"></div>
+        <div class="two-col">
+          <div class="panel"><div class="panel-head"><h2>Matérias</h2></div><div id="listaMaterias" class="card-grid"></div></div>
+          <div class="panel"><div class="panel-head"><h2>⏰ Revisões pendentes</h2></div><div id="listaRevisoes" class="attention-list"></div></div>
+        </div>
+        <div class="panel"><div class="panel-head"><h2>Sessões recentes</h2></div><div id="listaSessoes" class="activity-list"></div></div>
+      </section>
+
+      <!-- AGENDA -->
+      <section class="view" id="view-agenda" data-view="agenda" hidden>
+        <div class="section-intro">
+          <div><h1>Agenda</h1><p>Tudo com data e horário: estudos, tarefas, rotinas e compromissos.</p></div>
+          <div class="agenda-actions"><button class="btn btn-primary" data-action="novo-evento">＋ Novo compromisso</button></div>
+        </div>
+        <div class="agenda-toolbar">
+          <div class="agenda-nav">
+            <button class="btn btn-ghost" id="agendaPrev">‹</button>
+            <button class="btn btn-ghost" id="agendaHoje">Hoje</button>
+            <button class="btn btn-ghost" id="agendaNext">›</button>
+            <strong id="agendaTitulo"></strong>
+          </div>
+          <div class="agenda-views"><button class="btn btn-sm btn-primary" data-agenda-view="semana">Semana</button><button class="btn btn-sm btn-ghost" data-agenda-view="dia">Dia</button><button class="btn btn-sm btn-ghost" data-agenda-view="mes">Mês</button></div>
+        </div>
+        <div id="agendaConteudo"></div>
+      </section>
+
+      <!-- TAREFAS -->
+      <section class="view" id="view-tarefas" data-view="tarefas" hidden>
+        <div class="section-intro">
+          <div><h1>Tarefas</h1><p>O que precisa ser feito, com prioridade, prazo e recorrência.</p></div>
+          <button class="btn btn-primary" data-action="nova-tarefa">＋ Nova tarefa</button>
+        </div>
+        <div class="toolbar">
+          <div class="filters" id="filtrosTarefas">
+            <input type="search" class="input" data-filter="busca" placeholder="Pesquisar tarefas...">
+            <select class="input" data-filter="status"><option value="">Status: todos</option><option>Pendente</option><option>Em andamento</option><option>Concluída</option><option>Cancelada</option></select>
+            <select class="input" data-filter="prioridade"><option value="">Prioridade: todas</option><option>Baixa</option><option>Média</option><option>Alta</option><option>Urgente</option></select>
+          </div>
+        </div>
+        <div id="listaTarefas" class="activity-list"></div>
+        <div class="empty-state" id="vazioTarefas" hidden>Nenhuma tarefa encontrada.</div>
+      </section>
+
+      <!-- ROTINAS -->
+      <section class="view" id="view-rotinas" data-view="rotinas" hidden>
+        <div class="section-intro">
+          <div><h1>Rotinas</h1><p>Atividades recorrentes: estudar, treinar, ler, organizar...</p></div>
+          <button class="btn btn-primary" data-action="nova-rotina">＋ Nova rotina</button>
+        </div>
+        <div id="listaRotinas" class="card-grid"></div>
+        <div class="empty-state" id="vazioRotinas" hidden>Nenhuma rotina cadastrada.</div>
+      </section>
+
+      <!-- METAS -->
+      <section class="view" id="view-metas" data-view="metas" hidden>
+        <div class="section-intro">
+          <div><h1>Minhas Metas</h1><p>Curto, médio e longo prazo, com etapas e progresso.</p></div>
+          <button class="btn btn-primary" data-action="nova-meta">＋ Nova meta</button>
+        </div>
+        <div id="listaMetas" class="metas-columns"></div>
+      </section>
+
+      <!-- REFLEXÕES -->
+      <section class="view" id="view-reflexoes" data-view="reflexoes" hidden>
+        <div class="section-intro">
+          <div><h1>Reflexões</h1><p>Escreva livremente ou responda perguntas guia sobre o seu dia.</p></div>
+          <button class="btn btn-primary" data-action="nova-reflexao">＋ Nova reflexão</button>
+        </div>
+        <div id="listaReflexoes" class="activity-list"></div>
+        <div class="empty-state" id="vazioReflexoes" hidden>Nenhuma reflexão registrada ainda.</div>
+      </section>
+
+      <!-- EVOLUÇÃO -->
+      <section class="view" id="view-evolucao" data-view="evolucao" hidden>
+        <div class="section-intro"><div><h1>Evolução</h1><p>Retrospectivas, linha do tempo e histórico.</p></div></div>
+        <div class="diario-tabs" id="evolucaoTabs">
+          <button class="diario-tab is-active" data-evtab="retrospectiva">Retrospectiva</button>
+          <button class="diario-tab" data-evtab="timeline">Linha do tempo</button>
+          <button class="diario-tab" data-evtab="historico">Histórico</button>
+        </div>
+        <div id="evolucaoConteudo"></div>
+      </section>
+
+      <!-- MEMÓRIA -->
+      <section class="view" id="view-memoria" data-view="memoria" hidden>
+        <div class="toolbar">
+          <input type="search" class="input input-wide" id="buscaMemoriaInput" placeholder="Pesquise em tudo: diário, estudos, tarefas, metas, reflexões, agenda...">
+        </div>
+        <div id="resultadosMemoria"></div>
+      </section>
+
+      <!-- CONFIGURAÇÕES -->
+      <section class="view" id="view-config" data-view="config" hidden>
+        <div class="section-intro"><div><h1>Configurações</h1><p>Tema e backup dos seus dados.</p></div></div>
+        <div id="configConteudo"></div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<!-- ======================= MODAL (formulários / detalhes) ======================= -->
+<div class="modal-backdrop" id="modalBackdrop" hidden>
+  <div class="modal" id="modal" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <h2 id="modalTitle">Título</h2>
+      <button class="icon-btn" id="btnCloseModal" aria-label="Fechar">✕</button>
+    </div>
+    <div class="modal-body" id="modalBody"></div>
+  </div>
+</div>
+
+<!-- CONFIRM DIALOG -->
+<div class="modal-backdrop" id="confirmBackdrop" hidden>
+  <div class="modal modal-sm" role="alertdialog" aria-modal="true">
+    <div class="modal-body">
+      <p id="confirmText">Tem certeza?</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="btnConfirmCancel">Cancelar</button>
+        <button class="btn btn-danger" id="btnConfirmOk">Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
