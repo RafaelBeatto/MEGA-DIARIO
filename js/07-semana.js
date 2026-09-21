@@ -7,12 +7,18 @@ function getSemana(mondayIso){ return DB.getById('semanas', mondayIso); }
 function getOrCreateSemana(mondayIso){
   let semana = getSemana(mondayIso);
   if (!semana){
-    semana = { id: mondayIso, inicio: mondayIso, fim: addDaysISO(mondayIso,6), objetivos: [], revisao: null, planejamento: null, criadoEm: Date.now(), atualizadoEm: Date.now() };
+    semana = { id: mondayIso, inicio: mondayIso, fim: addDaysISO(mondayIso,6), objetivos: [], metasImportantesIds: [], revisao: null, planejamento: null, criadoEm: Date.now(), atualizadoEm: Date.now() };
     DB.insert('semanas', semana);
   }
   return semana;
 }
 function salvarSemana(mondayIso, patch){ getOrCreateSemana(mondayIso); return DB.update('semanas', mondayIso, patch); }
+function toggleMetaImportanteSemana(mondayIso, metaId){
+  const semana = getOrCreateSemana(mondayIso);
+  const atuais = semana.metasImportantesIds || [];
+  const novas = atuais.includes(metaId) ? atuais.filter(x=>x!==metaId) : [...atuais, metaId];
+  salvarSemana(mondayIso, {metasImportantesIds: novas});
+}
 
 function openFormObjetivoSemana(objetivoId){
   const semana = getOrCreateSemana(semanaAtualInicio);
@@ -49,6 +55,10 @@ function renderSemanaPlanejamento(){
   const sessoes = DB.getAll('sessoes').filter(s => mondayOf(s.data) === semanaAtualInicio);
   const tarefas = DB.getAll('tarefas').map(t=>({...t,_data:prazoTarefa(t).data})).filter(t => t._data && mondayOf(t._data) === semanaAtualInicio);
   const compromissos = itemsAgenda(dias[0], dias[6]).filter(i => i._origem === 'evento');
+  const ocorrenciasSemana = ocorrenciasRotinas(dias[0], dias[6]);
+  const metasImportantesIds = semana.metasImportantesIds || [];
+  const metasImportantes = metasImportantesIds.map(id => DB.getById('metas', id)).filter(Boolean);
+  const metasDisponiveis = DB.getAll('metas').filter(m => !metasImportantesIds.includes(m.id) && m.status !== 'Concluída');
 
   const box = document.getElementById('semanaConteudo');
   box.innerHTML = `
@@ -89,6 +99,28 @@ function renderSemanaPlanejamento(){
     </div>
 
     <div class="panel">
+      <div class="panel-head"><h2>🔄 Rotinas da semana</h2></div>
+      <div class="week-mini-grid">${dias.map(iso => {
+        const doDia = ocorrenciasSemana.filter(o => o.data === iso);
+        return `<div class="week-mini-day ${iso===todayISO()?'is-today':''}">
+          <div class="week-mini-day-head">${nomeDiaCurto(iso).slice(0,3)}<br><strong>${parseISODate(iso).getDate()}</strong></div>
+          <div class="week-mini-day-items">${doDia.map(o => `<button type="button" class="agenda-chip is-rotina ${rotinaConcluidaEm(o.rotinaId, iso)?'is-done':''}" data-rot="${o.rotinaId}" data-rot-dia="${iso}">${o.horario?o.horario+' ':''}${escapeHTML(o.titulo)}</button>`).join('') || '<span class="muted" style="font-size:11px">—</span>'}</div>
+        </div>`;
+      }).join('')}</div>
+      ${ocorrenciasSemana.length ? '<p class="muted" style="margin-top:8px;font-size:11.5px">Clique numa rotina para marcar/desmarcar como feita naquele dia.</p>' : '<p class="muted" style="margin-top:8px">Nenhuma rotina prevista para esta semana. Cadastre em Rotinas e ela aparece aqui automaticamente.</p>'}
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>🎯 Metas importantes desta semana</h2></div>
+      ${metasImportantes.length ? `<div class="activity-list">${metasImportantes.map(m => { const p = progressoMeta(m); return `
+        <div class="attn-item" data-meta-imp="${m.id}"><div class="attn-dot" style="background:${m.status==='Concluída'?'var(--ok)':'var(--primary)'}"></div>
+          <div class="attn-main"><div class="attn-title">${escapeHTML(m.titulo)}</div><div class="attn-sub">${p}% concluído${m.prazo?' · '+formatDateBR(m.prazo):''}</div></div>
+          <div class="activity-actions"><button class="btn btn-sm" data-act="abrir">Abrir</button><button class="btn btn-sm" data-act="remover">Remover da semana</button></div>
+        </div>`; }).join('')}</div>` : '<p class="muted">Nenhuma meta marcada como prioridade desta semana ainda.</p>'}
+      ${metasDisponiveis.length ? `<select class="input" id="semMetaAdicionar" style="margin-top:10px"><option value="">＋ Adicionar meta a esta semana...</option>${metasDisponiveis.map(m=>`<option value="${m.id}">${escapeHTML(m.titulo)}</option>`).join('')}</select>` : ''}
+    </div>
+
+    <div class="panel">
       <div class="panel-head"><h2>🗓️ Compromissos e eventos da semana</h2></div>
       ${compromissos.length ? `<div class="activity-list">${compromissos.map(c => `<div class="activity-row"><span class="activity-time">${formatDateBR(c.data).slice(0,5)} ${c.horarioInicio||''}</span><span>${agendaItemChip(c)}</span></div>`).join('')}</div>` : '<p class="muted">Nenhum compromisso cadastrado para esta semana. Registre na Agenda e ele aparece aqui automaticamente.</p>'}
     </div>`;
@@ -107,6 +139,17 @@ function renderSemanaPlanejamento(){
   box.querySelectorAll('[data-tar]').forEach(el => el.addEventListener('click', () => openFormTarefa(el.dataset.tar)));
   box.querySelectorAll('[data-plan-estudo]').forEach(el => el.addEventListener('click', () => openFormSessaoEstudo(null, el.dataset.planEstudo, 'Planejada')));
   box.querySelectorAll('[data-plan-tarefa]').forEach(el => el.addEventListener('click', () => openFormTarefa(null, el.dataset.planTarefa)));
+  box.querySelectorAll('[data-rot]').forEach(el => el.addEventListener('click', () => { toggleRotinaConcluida(el.dataset.rot, el.dataset.rotDia); renderSemana(); }));
+  box.querySelectorAll('[data-meta-imp]').forEach(el => {
+    const metaId = el.dataset.metaImp;
+    el.querySelector('[data-act="abrir"]').onclick = () => abrirDetalheMeta(metaId);
+    el.querySelector('[data-act="remover"]').onclick = () => { toggleMetaImportanteSemana(semanaAtualInicio, metaId); renderSemana(); };
+  });
+  document.getElementById('semMetaAdicionar')?.addEventListener('change', (e) => {
+    if (!e.target.value) return;
+    toggleMetaImportanteSemana(semanaAtualInicio, e.target.value);
+    renderSemana();
+  });
   agendaBindChips(box, compromissos);
 }
 

@@ -41,19 +41,20 @@ function badgePrioridade(p){
   return ({'Baixa':'neutral','Média':'primary','Alta':'warn','Urgente':'danger'})[p] || 'neutral';
 }
 
-function openFormTarefa(id, presetData){
+function openFormTarefa(id, presetData, presets){
   const item = id ? DB.getById('tarefas', id) : null;
+  presets = presets || {};
   const rec = item?.recorrencia || {};
   const metas = DB.getAll('metas'), materias = DB.getAll('materias');
   openModal(item ? 'Editar tarefa' : 'Nova tarefa', `<form id="formTarefa"><div class="form-grid">
-    <div class="field full"><label for="td_titulo">O que precisa ser feito? *</label><input class="input" id="td_titulo" required value="${escapeHTML(item?.titulo||'')}"></div>
+    <div class="field full"><label for="td_titulo">O que precisa ser feito? *</label><input class="input" id="td_titulo" required value="${escapeHTML(item?.titulo||presets.titulo||'')}"></div>
     <div class="field"><label for="td_prioridade">Prioridade</label><select class="input" id="td_prioridade">${['Baixa','Média','Alta','Urgente'].map(x=>`<option ${(item?.prioridade||'Média')===x?'selected':''}>${x}</option>`).join('')}</select></div>
     <div class="field"><label for="td_categoria">Categoria</label><input class="input" id="td_categoria" value="${escapeHTML(item?.categoria||'')}" placeholder="Ex.: pessoal, estudos, saúde"></div>
     <div class="field"><label for="td_prazo">Data *</label><input class="input" type="date" id="td_prazo" required value="${item?.prazo||presetData||todayISO()}"></div>
     <div class="field"><label for="td_horario">Horário (opcional)</label><input class="input" type="time" id="td_horario" value="${escapeHTML(rec.horario||item?.horario||'')}"></div>
     <div class="field"><label for="td_frequencia">Repetição</label><select class="input" id="td_frequencia">${['Única','Diária','Semanal','Mensal'].map(x=>`<option ${(rec.frequencia||'Única')===x?'selected':''}>${x}</option>`).join('')}</select></div>
     <div class="field"><label for="td_tempo">Tempo estimado (min, opcional)</label><input class="input" type="number" min="0" id="td_tempo" value="${item?.tempoEstimadoMin||''}"></div>
-    ${selectRelacaoHTML({id:'td_meta', label:'Meta relacionada (opcional)', itens: metas.map(m=>({id:m.id,nome:m.titulo})), valorAtual:item?.metaId, vazio:'Nenhuma meta'})}
+    ${selectRelacaoHTML({id:'td_meta', label:'Meta relacionada (opcional)', itens: metas.map(m=>({id:m.id,nome:m.titulo})), valorAtual:item?.metaId||presets.metaId, vazio:'Nenhuma meta'})}
     ${selectRelacaoHTML({id:'td_materia', label:'Matéria relacionada (opcional)', itens: materias.map(m=>({id:m.id,nome:m.nome})), valorAtual:item?.materiaId, vazio:'Nenhuma matéria'})}
     <div class="field full"><label for="td_obs">Observações</label><textarea id="td_obs">${escapeHTML(item?.observacao||'')}</textarea></div>
   </div><p class="field-error" id="tdErro" hidden></p><div class="modal-actions"><button type="button" class="btn btn-ghost" id="tdCancelar">Cancelar</button><button type="submit" class="btn btn-primary">${item?'Salvar alterações':'Criar tarefa'}</button></div></form>`);

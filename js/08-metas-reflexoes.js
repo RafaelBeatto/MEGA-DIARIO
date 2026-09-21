@@ -85,7 +85,11 @@ function abrirDetalheMeta(id){
     <div class="detail-block"><div class="detail-label">Prazo</div><div class="detail-value">${m.prazo?formatDateBR(m.prazo):'Sem prazo definido'}</div></div></div>
     <div class="detail-block"><div class="detail-label">Progresso</div><div style="background:var(--surface-2);border-radius:6px;overflow:hidden;height:16px;margin-top:4px"><div style="width:${progresso}%;background:${progresso===100?'var(--ok)':'var(--primary)'};height:100%"></div></div><div class="muted" style="font-size:12px;margin-top:3px">${progresso}%</div></div>
     ${m.descricao?`<div class="detail-block"><div class="detail-label">Descrição</div><div class="detail-value">${escapeHTML(m.descricao)}</div></div>`:''}
-    <div class="detail-block"><div class="detail-label">Etapas</div><div class="activity-list">${(m.etapas||[]).map(e=>`<label style="display:flex;align-items:center;gap:8px;font-size:13.5px"><input type="checkbox" data-et="${e.id}" ${e.concluida?'checked':''}> <span style="${e.concluida?'text-decoration:line-through;color:var(--muted)':''}">${escapeHTML(e.titulo)}</span></label>`).join('') || '<span class="muted">Nenhuma etapa cadastrada.</span>'}</div>
+    <div class="detail-block"><div class="detail-label">Etapas</div><div class="activity-list">${(m.etapas||[]).map(e=>`
+      <div data-etapa="${e.id}" style="display:flex;align-items:center;gap:8px;font-size:13.5px;flex-wrap:wrap">
+        <label style="display:flex;align-items:center;gap:8px;flex:1;min-width:160px"><input type="checkbox" data-et="${e.id}" ${e.concluida?'checked':''}> <span style="${e.concluida?'text-decoration:line-through;color:var(--muted)':''}">${escapeHTML(e.titulo)}</span></label>
+        ${!e.concluida?`<button type="button" class="btn btn-sm" data-act="etapa-tarefa" title="Criar tarefa a partir desta etapa">→ Tarefa</button><button type="button" class="btn btn-sm" data-act="etapa-estudo" title="Criar sessão de estudo a partir desta etapa">→ Estudo</button>`:''}
+      </div>`).join('') || '<span class="muted">Nenhuma etapa cadastrada.</span>'}</div>
       <button class="btn btn-sm" id="metaNovaEtapa" style="margin-top:8px">＋ Nova etapa</button></div>
     <div class="stat-grid">
       ${[['Tarefas relacionadas',tarefasRel.length],['Sessões de estudo',sessoesRel.length],['Horas estudadas',(minutosEstudo/60).toFixed(1)+'h']].map(([l,n])=>`<div class="stat-card c-primary"><div class="stat-num">${n}</div><div class="stat-label">${l}</div></div>`).join('')}
@@ -98,6 +102,11 @@ function abrirDetalheMeta(id){
   document.getElementById('metaNovaEtapa').onclick = () => openFormEtapaMeta(id);
   document.getElementById('metaExcluir').onclick = () => confirmAction('Excluir esta meta?', () => { DB.remove('metas', id); showToast('Meta excluída.'); closeModal(); renderCurrentView(); });
   document.querySelectorAll('[data-et]').forEach(cb => cb.addEventListener('change', () => toggleEtapaMeta(id, cb.dataset.et)));
+  document.querySelectorAll('[data-etapa]').forEach(row => {
+    const etapa = (m.etapas||[]).find(e => e.id === row.dataset.etapa);
+    row.querySelector('[data-act="etapa-tarefa"]')?.addEventListener('click', () => { closeModal(); openFormTarefa(null, null, {titulo: etapa.titulo, metaId: id}); });
+    row.querySelector('[data-act="etapa-estudo"]')?.addEventListener('click', () => { closeModal(); openFormSessaoEstudo(null, null, 'Planejada', {assunto: etapa.titulo, metaId: id}); });
+  });
 }
 function renderMetas(){
   const metas = DB.getAll('metas');

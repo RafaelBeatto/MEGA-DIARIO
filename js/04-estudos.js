@@ -89,20 +89,21 @@ function abrirDetalheMateria(id){
 }
 function nomeMateria(materiaId){ const m = DB.getById('materias', materiaId); return m ? m.nome : '—'; }
 
-function openFormSessaoEstudo(id, presetData, presetStatus){
+function openFormSessaoEstudo(id, presetData, presetStatus, presets){
   const item = id ? DB.getById('sessoes', id) : null;
+  presets = presets || {};
   const materias = DB.getAll('materias');
   const metas = DB.getAll('metas');
   const statusInicial = item?.status || presetStatus || 'Realizada';
   openModal(item ? 'Editar sessão de estudo' : 'Sessão de estudo', `<form id="formSessao"><div class="form-grid">
     <div class="field"><label for="ss_materia">Matéria *</label><select class="input" id="ss_materia" required>${materias.length?'':'<option value="">Nenhuma matéria cadastrada</option>'}${materias.map(m=>`<option value="${m.id}" ${item?.materiaId===m.id?'selected':''}>${escapeHTML(m.nome)}</option>`).join('')}</select></div>
-    <div class="field"><label for="ss_assunto">Assunto *</label><input class="input" id="ss_assunto" required value="${escapeHTML(item?.assunto||'')}" placeholder="Ex.: Frações"></div>
+    <div class="field"><label for="ss_assunto">Assunto *</label><input class="input" id="ss_assunto" required value="${escapeHTML(item?.assunto||presets.assunto||'')}" placeholder="Ex.: Frações"></div>
     <div class="field"><label for="ss_data">Data</label><input class="input" type="date" id="ss_data" value="${item?.data||presetData||todayISO()}"></div>
     <div class="field"><label for="ss_status">Status</label><select class="input" id="ss_status"><option value="Planejada" ${statusInicial==='Planejada'?'selected':''}>Planejada</option><option value="Realizada" ${statusInicial==='Realizada'?'selected':''}>Realizada</option></select></div>
     <div class="field"><label for="ss_inicio">Horário inicial</label><input class="input" type="time" id="ss_inicio" value="${item?.horarioInicio||''}"></div>
     <div class="field"><label for="ss_fim">Horário final</label><input class="input" type="time" id="ss_fim" value="${item?.horarioFim||''}"></div>
     <div class="field"><label for="ss_dificuldade">Dificuldade</label><select class="input" id="ss_dificuldade">${['Fácil','Média','Difícil'].map(d=>`<option ${(item?.dificuldade||'Média')===d?'selected':''}>${d}</option>`).join('')}</select></div>
-    ${selectRelacaoHTML({id:'ss_meta', label:'Meta relacionada (opcional)', itens: metas.map(m=>({id:m.id,nome:m.titulo})), valorAtual:item?.metaId, vazio:'Nenhuma meta'})}
+    ${selectRelacaoHTML({id:'ss_meta', label:'Meta relacionada (opcional)', itens: metas.map(m=>({id:m.id,nome:m.titulo})), valorAtual:item?.metaId||presets.metaId, vazio:'Nenhuma meta'})}
     <div class="field"><label for="ss_total">Exercícios (total)</label><input class="input" type="number" min="0" id="ss_total" value="${item?.exerciciosTotal||''}"></div>
     <div class="field"><label for="ss_acertos">Exercícios (acertos)</label><input class="input" type="number" min="0" id="ss_acertos" value="${item?.exerciciosAcertos||''}"></div>
     <div class="field full"><label for="ss_aprendi">O que você aprendeu?</label><textarea id="ss_aprendi">${escapeHTML(item?.oQueAprendi||'')}</textarea></div>
