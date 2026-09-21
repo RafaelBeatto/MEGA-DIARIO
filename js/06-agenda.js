@@ -48,8 +48,7 @@ function openFormEvento(id, presetData){
     <div class="field full"><label for="ev_desc">Descrição</label><textarea id="ev_desc">${escapeHTML(item?.descricao||'')}</textarea></div>
   </div><p class="field-error" id="evErro" hidden></p><div class="modal-actions"><button type="button" class="btn btn-ghost" id="evCancelar">Cancelar</button><button type="submit" class="btn btn-primary">${item?'Salvar alterações':'Criar compromisso'}</button></div></form>`);
   document.getElementById('evCancelar').onclick = closeModal;
-  document.getElementById('formEvento').addEventListener('submit', e => {
-    e.preventDefault();
+  onSubmitGuarded(document.getElementById('formEvento'), () => {
     const titulo = document.getElementById('ev_titulo').value.trim();
     if (!titulo){ const er=document.getElementById('evErro'); er.hidden=false; er.textContent='Informe o título.'; return; }
     const dados = {

@@ -44,6 +44,7 @@ function badgePrioridade(p){
 function openFormTarefa(id, presetData){
   const item = id ? DB.getById('tarefas', id) : null;
   const rec = item?.recorrencia || {};
+  const metas = DB.getAll('metas'), materias = DB.getAll('materias');
   openModal(item ? 'Editar tarefa' : 'Nova tarefa', `<form id="formTarefa"><div class="form-grid">
     <div class="field full"><label for="td_titulo">O que precisa ser feito? *</label><input class="input" id="td_titulo" required value="${escapeHTML(item?.titulo||'')}"></div>
     <div class="field"><label for="td_prioridade">Prioridade</label><select class="input" id="td_prioridade">${['Baixa','Média','Alta','Urgente'].map(x=>`<option ${(item?.prioridade||'Média')===x?'selected':''}>${x}</option>`).join('')}</select></div>
@@ -51,11 +52,13 @@ function openFormTarefa(id, presetData){
     <div class="field"><label for="td_prazo">Data *</label><input class="input" type="date" id="td_prazo" required value="${item?.prazo||presetData||todayISO()}"></div>
     <div class="field"><label for="td_horario">Horário (opcional)</label><input class="input" type="time" id="td_horario" value="${escapeHTML(rec.horario||item?.horario||'')}"></div>
     <div class="field"><label for="td_frequencia">Repetição</label><select class="input" id="td_frequencia">${['Única','Diária','Semanal','Mensal'].map(x=>`<option ${(rec.frequencia||'Única')===x?'selected':''}>${x}</option>`).join('')}</select></div>
+    <div class="field"><label for="td_tempo">Tempo estimado (min, opcional)</label><input class="input" type="number" min="0" id="td_tempo" value="${item?.tempoEstimadoMin||''}"></div>
+    ${selectRelacaoHTML({id:'td_meta', label:'Meta relacionada (opcional)', itens: metas.map(m=>({id:m.id,nome:m.titulo})), valorAtual:item?.metaId, vazio:'Nenhuma meta'})}
+    ${selectRelacaoHTML({id:'td_materia', label:'Matéria relacionada (opcional)', itens: materias.map(m=>({id:m.id,nome:m.nome})), valorAtual:item?.materiaId, vazio:'Nenhuma matéria'})}
     <div class="field full"><label for="td_obs">Observações</label><textarea id="td_obs">${escapeHTML(item?.observacao||'')}</textarea></div>
   </div><p class="field-error" id="tdErro" hidden></p><div class="modal-actions"><button type="button" class="btn btn-ghost" id="tdCancelar">Cancelar</button><button type="submit" class="btn btn-primary">${item?'Salvar alterações':'Criar tarefa'}</button></div></form>`);
   document.getElementById('tdCancelar').onclick = closeModal;
-  document.getElementById('formTarefa').addEventListener('submit', e => {
-    e.preventDefault();
+  onSubmitGuarded(document.getElementById('formTarefa'), () => {
     const titulo = document.getElementById('td_titulo').value.trim();
     if (!titulo){ const er=document.getElementById('tdErro'); er.hidden=false; er.textContent='Informe o que precisa ser feito.'; return; }
     const freq = document.getElementById('td_frequencia').value;
@@ -67,7 +70,10 @@ function openFormTarefa(id, presetData){
       horario: document.getElementById('td_horario').value,
       prazo, status: item?.status==='Concluída' && !recDados ? 'Concluída' : (item?.status||'Pendente'),
       observacao: document.getElementById('td_obs').value.trim(),
-      recorrencia: recDados
+      recorrencia: recDados,
+      tempoEstimadoMin: Number(document.getElementById('td_tempo').value)||null,
+      metaId: document.getElementById('td_meta').value || null,
+      materiaId: document.getElementById('td_materia').value || null
     };
     if (item){
       DB.update('tarefas', item.id, dados);
@@ -95,6 +101,7 @@ function concluirTarefa(id){
     registrarHistorico({modulo:'tarefas', acao:'conclusão', descricao:`Tarefa "${item.titulo}" concluída.`, refId:id});
     showToast('✓ Tarefa concluída.');
   }
+  if (item.metaId && typeof registrarSnapshotProgressoMeta === 'function') registrarSnapshotProgressoMeta(item.metaId);
   renderCurrentView();
 }
 function renderTarefas(){
@@ -106,7 +113,13 @@ function renderTarefas(){
   lista.sort((a,b) => { const da=prazoTarefa(a).data, db=prazoTarefa(b).data; return (da?parseISODate(da).getTime():Infinity) - (db?parseISODate(db).getTime():Infinity); });
 
   const box = document.getElementById('listaTarefas');
-  document.getElementById('vazioTarefas').hidden = lista.length !== 0;
+  const vazio = document.getElementById('vazioTarefas');
+  const semFiltro = !filtros.busca && !filtros.status && !filtros.prioridade;
+  vazio.hidden = lista.length !== 0;
+  if (!lista.length){
+    vazio.innerHTML = semFiltro ? 'Você ainda não possui tarefas. Crie a primeira e comece a organizar o que precisa ser feito. <button class="btn btn-sm btn-primary" id="vazioTarefasBtn" style="margin-top:8px">＋ Nova tarefa</button>' : 'Nenhuma tarefa encontrada com esses filtros.';
+    document.getElementById('vazioTarefasBtn')?.addEventListener('click', () => openFormTarefa());
+  }
   box.innerHTML = lista.map(t => { const pz = prazoTarefa(t); const recorr = !!t.recorrencia;
     return `<article class="activity-card ${tarefaAtrasada(t)?'is-late':''}" data-id="${t.id}">
       <div class="activity-main"><div class="activity-title-row"><span class="activity-icon">${recorr?'🔄':'✅'}</span><div><div class="activity-title">${escapeHTML(t.titulo)}</div>
@@ -179,8 +192,7 @@ function openFormRotina(id){
   function toggle(){ diasBox.style.display = freqEl.value==='dias_semana'?'block':'none'; mesBox.style.display = freqEl.value==='mensal'?'flex':'none'; }
   freqEl.addEventListener('change', toggle); toggle();
   document.getElementById('rtCancelar').onclick = closeModal;
-  document.getElementById('formRotina').addEventListener('submit', e => {
-    e.preventDefault();
+  onSubmitGuarded(document.getElementById('formRotina'), () => {
     const titulo = document.getElementById('rt_titulo').value.trim();
     if (!titulo){ const er=document.getElementById('rtErro'); er.hidden=false; er.textContent='Informe a atividade.'; return; }
     const freq = freqEl.value;
@@ -201,18 +213,28 @@ function openFormRotina(id){
 function renderRotinas(){
   const lista = DB.getAll('rotinas');
   const box = document.getElementById('listaRotinas');
-  document.getElementById('vazioRotinas').hidden = lista.length !== 0;
+  const vazio = document.getElementById('vazioRotinas');
+  vazio.hidden = lista.length !== 0;
+  if (!lista.length) vazio.innerHTML = 'Você ainda não tem rotinas. Cadastre atividades que se repetem — estudar, treinar, ler — e elas aparecem sozinhas na Agenda e no Meu Dia. <button class="btn btn-sm btn-primary" id="vazioRotinasBtn" style="margin-top:8px">＋ Criar primeira rotina</button>';
+  if (!lista.length) document.getElementById('vazioRotinasBtn').onclick = () => openFormRotina();
+  const hoje = todayISO();
   const freqLabel = r => ({diaria:'Diariamente', dias_semana:(r.recorrencia.diasSemana||[]).map(d=>DIAS_SEMANA_LABELS[d].slice(0,3)).join(', '), semanal:'Semanalmente', mensal:`Todo dia ${r.recorrencia.diaMes}`})[r.recorrencia.frequencia];
-  box.innerHTML = lista.map(r => `<div class="panel" data-id="${r.id}" style="margin-bottom:0;${r.ativo?'':'opacity:.55'}">
+  box.innerHTML = lista.map(r => {
+    const ocorreHoje = rotinaOcorreEm(r, hoje) && r.ativo;
+    const feita = rotinaConcluidaEm(r.id, hoje);
+    return `<div class="panel" data-id="${r.id}" style="margin-bottom:0;${r.ativo?'':'opacity:.55'}">
     <div class="panel-head"><h2>🔄 ${escapeHTML(r.titulo)}</h2></div>
     <div class="muted" style="font-size:12.5px;margin-bottom:10px">${freqLabel(r)}${r.horario?' · '+r.horario:''}${r.categoria?' · '+escapeHTML(r.categoria):''}</div>
+    ${ocorreHoje ? `<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:10px"><input type="checkbox" data-act="hoje" ${feita?'checked':''}> Feita hoje</label>` : ''}
     <div class="activity-actions"><button class="btn btn-sm" data-act="toggle">${r.ativo?'Pausar':'Ativar'}</button><button class="btn btn-sm" data-act="editar">Editar</button><button class="btn btn-sm btn-danger" data-act="excluir">Excluir</button></div>
-  </div>`).join('');
+  </div>`;
+  }).join('');
   box.querySelectorAll('[data-id]').forEach(card => {
     const id = card.dataset.id;
     card.querySelector('[data-act="toggle"]').onclick = () => { const r=DB.getById('rotinas',id); DB.update('rotinas',id,{ativo:!r.ativo}); renderRotinas(); };
     card.querySelector('[data-act="editar"]').onclick = () => openFormRotina(id);
     card.querySelector('[data-act="excluir"]').onclick = () => confirmAction('Excluir esta rotina?', () => { DB.remove('rotinas', id); showToast('Rotina excluída.'); renderRotinas(); });
+    card.querySelector('[data-act="hoje"]')?.addEventListener('change', () => { toggleRotinaConcluida(id, hoje); showToast('✓ Atualizado.'); renderRotinas(); });
   });
 }
 document.querySelector('[data-action="nova-rotina"]').addEventListener('click', () => openFormRotina());

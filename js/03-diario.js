@@ -1,12 +1,12 @@
 /* ---------------------------------------------------------
    MEU DIÁRIO (registros pessoais) + REGISTRO RÁPIDO
    --------------------------------------------------------- */
-const TIPOS_REGISTRO = ['Acontecimento','Reflexão','Ideia','Aprendizado','Conquista','Problema','Observação'];
+const TIPOS_REGISTRO = ['Acontecimento','Reflexão','Ideia','Aprendizado','Conquista','Problema','Observação','Gratidão'];
 function tipoRegistroIcon(tipo){
-  return ({Acontecimento:'📌',Reflexão:'🧠',Ideia:'💡',Aprendizado:'📖',Conquista:'🏆',Problema:'⚠️',Observação:'👁️'})[tipo] || '📝';
+  return ({Acontecimento:'📌',Reflexão:'🧠',Ideia:'💡',Aprendizado:'📖',Conquista:'🏆',Problema:'⚠️',Observação:'👁️',Gratidão:'❤️'})[tipo] || '📝';
 }
 function tipoRegistroTom(tipo){
-  return ({Acontecimento:'primary',Reflexão:'primary',Ideia:'warn',Aprendizado:'ok',Conquista:'ok',Problema:'danger',Observação:'neutral'})[tipo] || 'neutral';
+  return ({Acontecimento:'primary',Reflexão:'primary',Ideia:'warn',Aprendizado:'ok',Conquista:'ok',Problema:'danger',Observação:'neutral',Gratidão:'ok'})[tipo] || 'neutral';
 }
 const HUMORES = [
   {v:'otimo', label:'😄 Ótimo'}, {v:'bom', label:'🙂 Bom'}, {v:'neutro', label:'😐 Neutro'},
@@ -16,12 +16,13 @@ function humorLabel(v){ return (HUMORES.find(h=>h.v===v)||{}).label || ''; }
 
 function abrirRegistroRapido(){
   const opcoes = [
-    {tipo:'Acontecimento', icon:'📌', acao:()=>openFormRegistroDiario(null,'Acontecimento')},
     {tipo:'Estudo', icon:'📚', acao:()=>openFormSessaoEstudo()},
     {tipo:'Tarefa', icon:'✅', acao:()=>openFormTarefa()},
-    {tipo:'Reflexão', icon:'🧠', acao:()=>openFormReflexao()},
-    {tipo:'Ideia', icon:'💡', acao:()=>openFormRegistroDiario(null,'Ideia')},
-    {tipo:'Aprendizado', icon:'📖', acao:()=>openFormRegistroDiario(null,'Aprendizado')}
+    {tipo:'Diário', icon:'📝', acao:()=>openFormRegistroDiario()},
+    {tipo:'Meta', icon:'🎯', acao:()=>openFormMeta()},
+    {tipo:'Compromisso', icon:'📅', acao:()=>openFormEvento()},
+    {tipo:'Reflexão', icon:'💭', acao:()=>openFormReflexao()},
+    {tipo:'Rotina', icon:'🔄', acao:()=>openFormRotina()}
   ];
   openModal('O que você quer registrar?', `<div class="quick-register-grid">${opcoes.map((o,i)=>`<button type="button" class="quick-register-btn" data-qr="${i}"><span>${o.icon}</span>${o.tipo}</button>`).join('')}</div>`);
   document.querySelectorAll('[data-qr]').forEach((btn,i) => btn.addEventListener('click', () => { closeModal(); opcoes[i].acao(); }));
@@ -36,12 +37,12 @@ function openFormRegistroDiario(id, tipoPreset){
     <div class="field"><label for="rd_data">Data</label><input class="input" type="date" id="rd_data" value="${item?.data||todayISO()}"></div>
     <div class="field"><label for="rd_hora">Horário</label><input class="input" type="time" id="rd_hora" value="${item?.hora||new Date().toTimeString().slice(0,5)}"></div>
     <div class="field"><label for="rd_humor">Humor (opcional)</label><select class="input" id="rd_humor"><option value="">Sem humor registrado</option>${HUMORES.map(h=>`<option value="${h.v}" ${item?.humor===h.v?'selected':''}>${h.label}</option>`).join('')}</select></div>
-    <div class="field"><label for="rd_tags">Tags (separadas por vírgula)</label><input class="input" id="rd_tags" value="${escapeHTML((item?.tags||[]).join(', '))}"></div>
+    <div class="field"><label for="rd_energia">Energia (1 a 5, opcional)</label><select class="input" id="rd_energia"><option value="">Não informar</option>${[1,2,3,4,5].map(n=>`<option value="${n}" ${Number(item?.energia)===n?'selected':''}>${'⚡'.repeat(n)} (${n})</option>`).join('')}</select></div>
+    <div class="field full"><label for="rd_tags">Tags (separadas por vírgula)</label><input class="input" id="rd_tags" value="${escapeHTML((item?.tags||[]).join(', '))}" placeholder="#estudos, #trabalho, #família"></div>
     <div class="field full"><label for="rd_texto">Descrição *</label><textarea id="rd_texto" required placeholder="Hoje aconteceu...">${escapeHTML(item?.texto||'')}</textarea></div>
   </div><p class="field-error" id="rdErro" hidden></p><div class="modal-actions"><button type="button" class="btn btn-ghost" id="rdCancelar">Cancelar</button><button type="submit" class="btn btn-primary">${item?'Salvar alterações':'Salvar registro'}</button></div></form>`);
   document.getElementById('rdCancelar').onclick = closeModal;
-  document.getElementById('formRegistroDiario').addEventListener('submit', e => {
-    e.preventDefault();
+  onSubmitGuarded(document.getElementById('formRegistroDiario'), () => {
     const titulo = document.getElementById('rd_titulo').value.trim();
     const texto = document.getElementById('rd_texto').value.trim();
     if (!titulo || !texto){ const er=document.getElementById('rdErro'); er.hidden=false; er.textContent='Preencha título e descrição.'; return; }
@@ -51,6 +52,7 @@ function openFormRegistroDiario(id, tipoPreset){
       data: document.getElementById('rd_data').value || todayISO(),
       hora: document.getElementById('rd_hora').value,
       humor: document.getElementById('rd_humor').value || null,
+      energia: document.getElementById('rd_energia').value ? Number(document.getElementById('rd_energia').value) : null,
       tags: document.getElementById('rd_tags').value.split(',').map(t=>t.trim()).filter(Boolean)
     };
     if (item){
@@ -70,7 +72,7 @@ function openFormRegistroDiario(id, tipoPreset){
 function abrirDetalheRegistroDiario(id){
   const r = DB.getById('registros', id); if (!r) return;
   openModal(`${tipoRegistroIcon(r.tipo)} ${escapeHTML(r.titulo)}`, `
-    <div class="activity-detail-head"><div><span class="badge-pill badge-${tipoRegistroTom(r.tipo)}">${escapeHTML(r.tipo)}</span></div>${r.humor?`<div>${humorLabel(r.humor)}</div>`:''}</div>
+    <div class="activity-detail-head"><div><span class="badge-pill badge-${tipoRegistroTom(r.tipo)}">${escapeHTML(r.tipo)}</span></div><div>${r.humor?humorLabel(r.humor):''}${r.energia?` · ${'⚡'.repeat(r.energia)}`:''}</div></div>
     <div class="form-grid">
       <div class="detail-block"><div class="detail-label">Data</div><div class="detail-value">${formatDateBR(r.data)} ${escapeHTML(r.hora||'')}</div></div>
       <div class="detail-block"><div class="detail-label">Categoria</div><div class="detail-value">${escapeHTML(r.categoria||'—')}</div></div>
@@ -96,7 +98,12 @@ function renderDiario(){
   lista.sort((a,b) => `${b.data}T${b.hora||'00:00'}`.localeCompare(`${a.data}T${a.hora||'00:00'}`));
 
   const box = document.getElementById('listaDiario');
-  document.getElementById('vazioDiario').hidden = lista.length !== 0;
+  const vazio = document.getElementById('vazioDiario');
+  const semFiltro = !filtros.busca && !filtros.tipo && !filtros.data;
+  vazio.hidden = lista.length !== 0;
+  if (!lista.length){
+    vazio.textContent = semFiltro ? 'Você ainda não tem registros no diário. Comece anotando o que aconteceu hoje, uma ideia ou um aprendizado.' : 'Nenhum registro encontrado com esses filtros.';
+  }
   box.innerHTML = lista.map(r => `<article class="activity-card" data-id="${r.id}">
     <div class="activity-main">
       <div class="activity-title-row"><span class="activity-icon">${tipoRegistroIcon(r.tipo)}</span><div><div class="activity-title">${escapeHTML(r.titulo)}</div>

@@ -13,8 +13,7 @@ function openFormMateria(id){
     <div class="field full"><label for="mt_nome">Nome da matéria *</label><input class="input" id="mt_nome" required value="${escapeHTML(item?.nome||'')}" placeholder="Ex.: Matemática"></div>
   </div><p class="field-error" id="mtErro" hidden></p><div class="modal-actions"><button type="button" class="btn btn-ghost" id="mtCancelar">Cancelar</button><button type="submit" class="btn btn-primary">${item?'Salvar':'Criar matéria'}</button></div></form>`);
   document.getElementById('mtCancelar').onclick = closeModal;
-  document.getElementById('formMateria').addEventListener('submit', e => {
-    e.preventDefault();
+  onSubmitGuarded(document.getElementById('formMateria'), () => {
     const nome = document.getElementById('mt_nome').value.trim();
     if (!nome){ const er=document.getElementById('mtErro'); er.hidden=false; er.textContent='Informe o nome da matéria.'; return; }
     if (item){ DB.update('materias', item.id, {nome}); showToast('✓ Matéria atualizada.'); }
@@ -35,13 +34,12 @@ function openFormAssunto(materiaId, assuntoId){
     <div class="field"><label for="as_progresso">Progresso (%)</label><input class="input" type="number" min="0" max="100" id="as_progresso" value="${assunto?.progresso||0}"></div>
   </div><div class="modal-actions"><button type="button" class="btn btn-ghost" id="asCancelar">Cancelar</button><button type="submit" class="btn btn-primary">Salvar</button></div></form>`);
   document.getElementById('asCancelar').onclick = closeModal;
-  document.getElementById('formAssunto').addEventListener('submit', e => {
-    e.preventDefault();
+  onSubmitGuarded(document.getElementById('formAssunto'), () => {
     const nome = document.getElementById('as_nome').value.trim(); if (!nome) return;
-    const progresso = Math.max(0, Math.min(100, Number(document.getElementById('as_progresso').value)||0));
+    const progresso = clamp(Number(document.getElementById('as_progresso').value)||0, 0, 100);
     const assuntos = [...materia.assuntos];
     if (assunto){ const idx = assuntos.findIndex(a=>a.id===assunto.id); assuntos[idx] = {...assuntos[idx], nome, progresso}; }
-    else assuntos.push({id:'AS-'+Date.now(), nome, progresso, ultimaRevisao:null, proximaRevisao:null, estagioRevisao:0});
+    else assuntos.push({id:uid('AS'), nome, progresso, ultimaRevisao:null, proximaRevisao:null, estagioRevisao:0});
     DB.update('materias', materiaId, {assuntos});
     showToast('✓ Assunto salvo.'); closeModal(); abrirDetalheMateria(materiaId);
   });
@@ -60,15 +58,25 @@ function marcarAssuntoRevisado(materiaId, assuntoId){
 function abrirDetalheMateria(id){
   const m = DB.getById('materias', id); if (!m) return;
   const assuntos = m.assuntos || [];
+  const sessoes = typeof sessoesDeMateria === 'function' ? sessoesDeMateria(id) : DB.getAll('sessoes').filter(s=>s.materiaId===id);
+  const realizadas = sessoes.filter(s=>s.status==='Realizada');
+  const minutos = realizadas.reduce((t,s)=>t+(s.duracaoMin||0),0);
+  const tarefasRel = typeof tarefasDeMateria === 'function' ? tarefasDeMateria(id) : [];
+  const metasRel = typeof metasRelacionadasMateria === 'function' ? metasRelacionadasMateria(id) : [];
   openModal(`📚 ${escapeHTML(m.nome)}`, `
+    <div class="stat-grid" style="margin-bottom:16px">
+      ${[['Horas estudadas',(minutos/60).toFixed(1)+'h'],['Sessões realizadas',realizadas.length],['Assuntos',assuntos.length]].map(([l,n])=>`<div class="stat-card c-primary"><div class="stat-num">${n}</div><div class="stat-label">${l}</div></div>`).join('')}
+    </div>
     <div class="modal-actions" style="justify-content:flex-start;margin-top:0;margin-bottom:14px"><button class="btn btn-sm btn-primary" id="mtNovoAssunto">＋ Novo assunto</button></div>
-    <div class="activity-list">${assuntos.length ? assuntos.map(a => `
+    <div class="activity-list">${assuntos.length ? assuntos.map(a => { const rv = statusRevisao(a.proximaRevisao); return `
       <article class="activity-card" data-as="${a.id}">
         <div class="activity-main"><div class="activity-title">${escapeHTML(a.nome)}</div>
-          <div class="activity-description">Progresso: ${a.progresso||0}% ${a.proximaRevisao ? `· Próxima revisão: ${formatDateBR(a.proximaRevisao)}` : '· Sem revisão agendada'}</div>
+          <div class="activity-description">Progresso: ${a.progresso||0}% · ${rv.icone} ${rv.texto}</div>
         </div>
         <div class="activity-actions"><button class="btn btn-sm btn-primary" data-act="revisar">✓ Revisei hoje</button><button class="btn btn-sm" data-act="editar">Editar</button></div>
-      </article>`).join('') : '<p class="muted">Nenhum assunto cadastrado ainda.</p>'}</div>
+      </article>`; }).join('') : '<p class="muted">Nenhum assunto cadastrado ainda.</p>'}</div>
+    ${tarefasRel.length ? `<div class="detail-block" style="margin-top:14px"><div class="detail-label">Tarefas relacionadas</div><div class="activity-list">${tarefasRel.map(t=>`<div class="history-row">${t.status==='Concluída'?'✅':'⬜'} ${escapeHTML(t.titulo)}</div>`).join('')}</div></div>` : ''}
+    ${metasRel.length ? `<div class="detail-block"><div class="detail-label">Metas relacionadas</div><div class="activity-list">${metasRel.map(mt=>`<div class="history-row" data-meta-link="${mt.id}" style="cursor:pointer">🎯 ${escapeHTML(mt.titulo)}</div>`).join('')}</div></div>` : ''}
     <div class="modal-actions"><button class="btn btn-ghost" id="mtFechar">Fechar</button></div>`);
   document.getElementById('mtFechar').onclick = closeModal;
   document.getElementById('mtNovoAssunto').onclick = () => openFormAssunto(id);
@@ -77,12 +85,14 @@ function abrirDetalheMateria(id){
     card.querySelector('[data-act="revisar"]').onclick = () => marcarAssuntoRevisado(id, asId);
     card.querySelector('[data-act="editar"]').onclick = () => openFormAssunto(id, asId);
   });
+  document.querySelectorAll('[data-meta-link]').forEach(el => el.addEventListener('click', () => abrirDetalheMeta(el.dataset.metaLink)));
 }
 function nomeMateria(materiaId){ const m = DB.getById('materias', materiaId); return m ? m.nome : '—'; }
 
 function openFormSessaoEstudo(id, presetData, presetStatus){
   const item = id ? DB.getById('sessoes', id) : null;
   const materias = DB.getAll('materias');
+  const metas = DB.getAll('metas');
   const statusInicial = item?.status || presetStatus || 'Realizada';
   openModal(item ? 'Editar sessão de estudo' : 'Sessão de estudo', `<form id="formSessao"><div class="form-grid">
     <div class="field"><label for="ss_materia">Matéria *</label><select class="input" id="ss_materia" required>${materias.length?'':'<option value="">Nenhuma matéria cadastrada</option>'}${materias.map(m=>`<option value="${m.id}" ${item?.materiaId===m.id?'selected':''}>${escapeHTML(m.nome)}</option>`).join('')}</select></div>
@@ -92,14 +102,14 @@ function openFormSessaoEstudo(id, presetData, presetStatus){
     <div class="field"><label for="ss_inicio">Horário inicial</label><input class="input" type="time" id="ss_inicio" value="${item?.horarioInicio||''}"></div>
     <div class="field"><label for="ss_fim">Horário final</label><input class="input" type="time" id="ss_fim" value="${item?.horarioFim||''}"></div>
     <div class="field"><label for="ss_dificuldade">Dificuldade</label><select class="input" id="ss_dificuldade">${['Fácil','Média','Difícil'].map(d=>`<option ${(item?.dificuldade||'Média')===d?'selected':''}>${d}</option>`).join('')}</select></div>
+    ${selectRelacaoHTML({id:'ss_meta', label:'Meta relacionada (opcional)', itens: metas.map(m=>({id:m.id,nome:m.titulo})), valorAtual:item?.metaId, vazio:'Nenhuma meta'})}
     <div class="field"><label for="ss_total">Exercícios (total)</label><input class="input" type="number" min="0" id="ss_total" value="${item?.exerciciosTotal||''}"></div>
     <div class="field"><label for="ss_acertos">Exercícios (acertos)</label><input class="input" type="number" min="0" id="ss_acertos" value="${item?.exerciciosAcertos||''}"></div>
     <div class="field full"><label for="ss_aprendi">O que você aprendeu?</label><textarea id="ss_aprendi">${escapeHTML(item?.oQueAprendi||'')}</textarea></div>
     <div class="field full"><label for="ss_obs">Observações / dificuldades</label><textarea id="ss_obs">${escapeHTML(item?.observacoes||'')}</textarea></div>
   </div><p class="field-error" id="ssErro" hidden></p><div class="modal-actions"><button type="button" class="btn btn-ghost" id="ssCancelar">Cancelar</button><button type="submit" class="btn btn-primary">${item?'Salvar alterações':'Salvar sessão'}</button></div></form>`);
   document.getElementById('ssCancelar').onclick = closeModal;
-  document.getElementById('formSessao').addEventListener('submit', e => {
-    e.preventDefault();
+  onSubmitGuarded(document.getElementById('formSessao'), () => {
     const materiaId = document.getElementById('ss_materia').value;
     const assunto = document.getElementById('ss_assunto').value.trim();
     if (!materiaId || !assunto){ const er=document.getElementById('ssErro'); er.hidden=false; er.textContent='Selecione a matéria e informe o assunto.'; return; }
@@ -111,6 +121,7 @@ function openFormSessaoEstudo(id, presetData, presetStatus){
       status: document.getElementById('ss_status').value,
       horarioInicio: ini, horarioFim: fim, duracaoMin,
       dificuldade: document.getElementById('ss_dificuldade').value,
+      metaId: document.getElementById('ss_meta').value || null,
       exerciciosTotal: Number(document.getElementById('ss_total').value)||0,
       exerciciosAcertos: Number(document.getElementById('ss_acertos').value)||0,
       oQueAprendi: document.getElementById('ss_aprendi').value.trim(),
@@ -126,6 +137,7 @@ function openFormSessaoEstudo(id, presetData, presetStatus){
       registrarHistorico({modulo:'estudos', acao:'criação', descricao:`Sessão de ${nova.assunto} (${nova.status.toLowerCase()}) registrada.`, refId:nova.id});
       showToast(nova.status==='Planejada' ? '✓ Estudo planejado.' : '✓ Sessão de estudo registrada.');
     }
+    if (dados.metaId && dados.status==='Realizada' && typeof registrarSnapshotProgressoMeta === 'function') registrarSnapshotProgressoMeta(dados.metaId);
     closeModal(); renderCurrentView();
   });
 }
@@ -133,7 +145,14 @@ function concluirSessaoEstudo(id){
   const s = DB.getById('sessoes', id); if (!s) return;
   DB.update('sessoes', id, {status:'Realizada'});
   registrarHistorico({modulo:'estudos', acao:'conclusão', descricao:`Estudo de ${s.assunto} realizado.`, refId:id});
+  if (s.metaId && typeof registrarSnapshotProgressoMeta === 'function') registrarSnapshotProgressoMeta(s.metaId);
   showToast('✓ Estudo concluído.'); renderCurrentView();
+}
+function statusRevisao(proximaRevisaoIso){
+  if (!proximaRevisaoIso) return {icone:'⚪', texto:'Sem revisão agendada', tom:'neutral'};
+  if (proximaRevisaoIso < todayISO()) return {icone:'🔴', texto:'Atrasada', tom:'danger'};
+  if (proximaRevisaoIso === todayISO()) return {icone:'🟡', texto:'Hoje', tom:'warn'};
+  return {icone:'🟢', texto:`Futura · ${formatDateBR(proximaRevisaoIso)}`, tom:'ok'};
 }
 function revisoesPendentes(){
   const hoje = todayISO(); const pendentes = [];

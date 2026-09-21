@@ -53,6 +53,10 @@
       </div>
       <div class="topbar-actions">
         <button class="btn btn-primary" id="btnNewGeneric">＋ Registrar</button>
+        <button class="icon-btn" id="btnBusca" aria-label="Busca global (Ctrl+K)" title="Busca global (Ctrl+K)">🔍</button>
+        <button class="icon-btn notif-btn" id="btnNotificacoes" aria-label="Notificações" aria-expanded="false" title="Notificações">
+          🔔<span class="notif-badge" id="notifBadge" aria-live="polite" hidden>0</span>
+        </button>
         <div class="clock" id="clockBox">
           <span id="clockTime">--:--</span>
           <span id="clockDate" class="muted">--/--/----</span>
@@ -69,19 +73,21 @@
 
       <!-- MEU DIA -->
       <section class="view" id="view-meudia" data-view="meudia">
-        <div class="section-intro">
-          <div><h1 id="meuDiaTitulo">Hoje</h1><p id="meuDiaSubtitulo" class="muted"></p></div>
-        </div>
+        <div class="dashboard-greeting" id="meuDiaSaudacao"></div>
+        <div id="meuDiaFoco"></div>
         <div class="quick-register-row" id="quickRegisterRow"></div>
+        <div id="meuDiaAtencao"></div>
+        <div class="dashboard-summary-grid" id="meuDiaResumo"></div>
         <div class="dashboard-spotlight" id="meuDiaAgenda"></div>
         <div class="two-col">
           <div class="panel"><div class="panel-head"><h2>📚 Estudos de hoje</h2></div><div id="meuDiaEstudos" class="activity-list"></div></div>
           <div class="panel"><div class="panel-head"><h2>✅ Tarefas de hoje</h2></div><div id="meuDiaTarefas" class="activity-list"></div></div>
         </div>
         <div class="two-col">
-          <div class="panel"><div class="panel-head"><h2>📝 Registros de hoje</h2></div><div id="meuDiaRegistros" class="activity-list"></div></div>
-          <div class="panel"><div class="panel-head"><h2>📊 Resumo do dia</h2></div><div id="meuDiaResumo" class="stat-grid"></div></div>
+          <div class="panel"><div class="panel-head"><h2>🔄 Rotinas de hoje</h2></div><div id="meuDiaRotinas" class="activity-list"></div></div>
+          <div class="panel"><div class="panel-head"><h2>🎯 Metas em ação</h2></div><div id="meuDiaMetas" class="activity-list"></div></div>
         </div>
+        <div class="panel"><div class="panel-head"><h2>📝 Registros de hoje</h2></div><div id="meuDiaRegistros" class="activity-list"></div></div>
       </section>
 
       <!-- SEMANA -->
@@ -201,6 +207,7 @@
         <div class="section-intro"><div><h1>Evolução</h1><p>Retrospectivas, linha do tempo e histórico.</p></div></div>
         <div class="diario-tabs" id="evolucaoTabs">
           <button class="diario-tab is-active" data-evtab="retrospectiva">Retrospectiva</button>
+          <button class="diario-tab" data-evtab="sequencia">Sequência</button>
           <button class="diario-tab" data-evtab="timeline">Linha do tempo</button>
           <button class="diario-tab" data-evtab="historico">Histórico</button>
         </div>

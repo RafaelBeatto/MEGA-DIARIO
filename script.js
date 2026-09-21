@@ -13,9 +13,11 @@
     '06-agenda.js',
     '07-semana.js',
     '08-metas-reflexoes.js',
+    '13-integracao.js',
     '09-meudia.js',
     '10-evolucao-memoria.js',
     '11-config.js',
+    '14-central.js',
     '12-inicializacao.js'
   ];
   const base='js/';

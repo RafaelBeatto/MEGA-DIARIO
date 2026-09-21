@@ -22,15 +22,15 @@ function renderRetrospectiva(){
   const [ini, fim] = retroIntervalo();
   const noIntervalo = iso => iso && iso >= ini && iso <= fim;
 
-  const sessoes = DB.getAll('sessoes').filter(s => s.status==='Realizada' && noIntervalo(s.data));
-  const minutos = sessoes.reduce((t,s) => t+(s.duracaoMin||0), 0);
-  const tarefasConcluidas = DB.getAll('tarefas').filter(t => t.status==='Concluída' && noIntervalo(t.dataConclusao));
+  const stats = estatisticasPeriodo(ini, fim);
   const registros = DB.getAll('registros').filter(r => noIntervalo(r.data));
-  const reflexoes = DB.getAll('reflexoes').filter(r => noIntervalo(r.data));
-  const metasConcluidas = DB.getAll('metas').filter(m => m.status==='Concluída' && noIntervalo(m.dataConclusao));
   const semana = retroModo==='semana' ? getSemana(ini) : null;
   const objetivosConcluidos = semana ? semana.objetivos.filter(o=>o.status==='Concluído') : [];
   const objetivosPendentes = semana ? semana.objetivos.filter(o=>o.status!=='Concluído') : [];
+
+  const [iniAnt, fimAnt] = retroModo==='semana' ? [addDaysISO(ini,-7), addDaysISO(fim,-7)] : [ini, fim];
+  const statsAnterior = retroModo==='semana' ? estatisticasPeriodo(iniAnt, fimAnt) : null;
+  const deltaMin = statsAnterior ? stats.minutosEstudo - statsAnterior.minutosEstudo : null;
 
   document.getElementById('evolucaoConteudo').innerHTML = `
     <div class="toolbar">
@@ -41,9 +41,11 @@ function renderRetrospectiva(){
     </div>
     <div class="report-content">
       <div class="report-grid">
-        ${[['Horas estudadas',(minutos/60).toFixed(1)+'h'],['Sessões de estudo',sessoes.length],['Tarefas concluídas',tarefasConcluidas.length],['Registros no diário',registros.length],['Reflexões escritas',reflexoes.length],['Metas concluídas',metasConcluidas.length]]
+        ${[['Horas estudadas',(stats.minutosEstudo/60).toFixed(1)+'h'],['Sessões de estudo',stats.sessoes],['Tarefas concluídas',stats.tarefasConcluidas],['Rotinas realizadas',stats.rotinasRealizadas],['Registros no diário',stats.registros],['Reflexões escritas',stats.reflexoes],['Metas concluídas',stats.metasConcluidas],['Dias ativos',`${stats.diasAtivos}/${stats.diasNoPeriodo}`]]
           .map(([label,num]) => `<div class="report-item"><div class="r-num">${num}</div><div class="r-label">${label}</div></div>`).join('')}
       </div>
+      ${deltaMin !== null ? `<p class="muted" style="margin:-8px 0 16px">${deltaMin===0 ? 'Mesmo tempo de estudo que a semana anterior.' : deltaMin>0 ? `📈 ${(deltaMin/60).toFixed(1)}h a mais de estudo que a semana anterior.` : `📉 ${(Math.abs(deltaMin)/60).toFixed(1)}h a menos de estudo que a semana anterior.`}</p>` : ''}
+      ${retroModo==='semana' ? renderBarraEstudoSemana(ini, fim) : ''}
       ${semana ? `
         <h3 class="report-section-title">Objetivos da semana</h3>
         <div class="history-list">
@@ -59,6 +61,40 @@ function renderRetrospectiva(){
   document.getElementById('retroModoSelect').addEventListener('change', e => { retroModo = e.target.value; renderRetrospectiva(); });
   document.getElementById('retroPrev').addEventListener('click', () => { if (retroModo==='semana') retroData.setDate(retroData.getDate()-7); else if (retroModo==='ano') retroData.setFullYear(retroData.getFullYear()-1); else retroData.setMonth(retroData.getMonth()-1); renderRetrospectiva(); });
   document.getElementById('retroNext').addEventListener('click', () => { if (retroModo==='semana') retroData.setDate(retroData.getDate()+7); else if (retroModo==='ano') retroData.setFullYear(retroData.getFullYear()+1); else retroData.setMonth(retroData.getMonth()+1); renderRetrospectiva(); });
+}
+
+function renderBarraEstudoSemana(ini, fim){
+  const dados = minutosEstudoPorDia(ini, fim);
+  const maior = Math.max(1, ...dados.map(d => d.minutos));
+  return `<h3 class="report-section-title">Horas de estudo por dia</h3>
+    <div class="bar-chart">${dados.map(d => {
+      const alturaPct = Math.round((d.minutos / maior) * 100);
+      const label = nomeDiaCurto(d.data).slice(0,3);
+      const horas = (d.minutos/60).toFixed(1);
+      return `<div class="bar-col" title="${label}: ${horas}h">
+        <div class="bar-track"><div class="bar-fill ${d.data===todayISO()?'is-today':''}" style="height:${d.minutos?Math.max(alturaPct,4):0}%"></div></div>
+        <div class="bar-value">${d.minutos ? horas+'h' : ''}</div>
+        <div class="bar-label">${label}</div>
+      </div>`;
+    }).join('')}</div>`;
+}
+
+function renderSequencia(){
+  const seq = calcularSequencia();
+  const box = document.getElementById('evolucaoConteudo');
+  box.innerHTML = `
+    <div class="streak-hero">
+      <div class="streak-hero-fire">🔥</div>
+      <div class="streak-hero-num">${seq.atual}</div>
+      <div class="streak-hero-label">dia${seq.atual===1?'':'s'} consecutivo${seq.atual===1?'':'s'} com atividade real</div>
+    </div>
+    <div class="report-grid">
+      ${[['Sequência atual',seq.atual],['Melhor sequência',seq.melhor],['Dias ativos no total',seq.totalDiasAtivos]]
+        .map(([label,num]) => `<div class="report-item"><div class="r-num">${num}</div><div class="r-label">${label}</div></div>`).join('')}
+    </div>
+    <p class="muted" style="margin-top:14px">Um dia conta como ativo quando há uma atividade real: uma sessão de estudo realizada, uma tarefa concluída, uma rotina marcada como feita, um registro no diário, uma reflexão ou progresso em uma meta. Apenas abrir o aplicativo não conta.</p>
+    ${seq.diasAtivos.length ? `<h3 class="report-section-title">Últimos dias ativos</h3><div class="history-list">${[...seq.diasAtivos].reverse().slice(0,14).map(d=>`<div class="history-row">${formatDateBR(d)}</div>`).join('')}</div>` : ''}
+  `;
 }
 
 function timelineItems(inicioIso, fimIso){
@@ -109,6 +145,7 @@ function renderEvolucao(){
   document.querySelectorAll('#evolucaoTabs .diario-tab').forEach(t => t.classList.toggle('is-active', t.dataset.evtab===evolucaoTab));
   if (evolucaoTab === 'timeline') renderTimeline();
   else if (evolucaoTab === 'historico') renderHistoricoDiario();
+  else if (evolucaoTab === 'sequencia') renderSequencia();
   else renderRetrospectiva();
 }
 document.querySelectorAll('#evolucaoTabs .diario-tab').forEach(t => t.addEventListener('click', () => { evolucaoTab = t.dataset.evtab; renderEvolucao(); }));

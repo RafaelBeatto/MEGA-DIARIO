@@ -24,14 +24,13 @@ function openFormObjetivoSemana(objetivoId){
     <div class="field full"><label for="ob_descricao">Descrição</label><textarea id="ob_descricao">${escapeHTML(objetivo?.descricao||'')}</textarea></div>
   </div><div class="modal-actions"><button type="button" class="btn btn-ghost" id="obCancelar">Cancelar</button><button type="submit" class="btn btn-primary">Salvar</button></div></form>`);
   document.getElementById('obCancelar').onclick = closeModal;
-  document.getElementById('formObjetivoSemana').addEventListener('submit', e => {
-    e.preventDefault();
+  onSubmitGuarded(document.getElementById('formObjetivoSemana'), () => {
     const titulo = document.getElementById('ob_titulo').value.trim(); if (!titulo) return;
-    const progresso = Math.max(0, Math.min(100, Number(document.getElementById('ob_progresso').value)||0));
+    const progresso = clamp(Number(document.getElementById('ob_progresso').value)||0, 0, 100);
     const dados = {titulo, prioridade: document.getElementById('ob_prioridade').value, progresso, descricao: document.getElementById('ob_descricao').value.trim(), status: progresso>=100?'Concluído':'Em andamento'};
     const objetivos = [...semana.objetivos];
     if (objetivo){ const idx = objetivos.findIndex(o=>o.id===objetivo.id); objetivos[idx] = {...objetivos[idx], ...dados}; }
-    else objetivos.push({id:'OBJ-'+Date.now(), ...dados});
+    else objetivos.push({id:uid('OBJ'), ...dados});
     salvarSemana(semanaAtualInicio, {objetivos});
     showToast('✓ Objetivo salvo.'); closeModal(); renderSemana();
   });
@@ -143,8 +142,7 @@ function abrirFluxoDomingo(){
   document.getElementById('domVoltar').onclick = () => { passo = 1; atualizarPasso(); };
   document.querySelectorAll('#domingoTabs .diario-tab').forEach(t => t.addEventListener('click', () => { passo = Number(t.dataset.step); atualizarPasso(); }));
   document.getElementById('domCancelar').onclick = closeModal;
-  document.getElementById('formDomingo').addEventListener('submit', e => {
-    e.preventDefault();
+  onSubmitGuarded(document.getElementById('formDomingo'), () => {
     const revisao = {}; PERGUNTAS_REVISAO.forEach(([k]) => revisao[k] = document.getElementById(`dom_rev_${k}`).value.trim());
     const planejamento = {}; PERGUNTAS_PLANEJAMENTO.forEach(([k]) => planejamento[k] = document.getElementById(`dom_plan_${k}`).value.trim());
     salvarSemana(semanaAtualInicio, {revisao});
