@@ -148,6 +148,29 @@ function concluirSessaoEstudo(id){
   if (s.metaId && typeof registrarSnapshotProgressoMeta === 'function') registrarSnapshotProgressoMeta(s.metaId);
   showToast('✓ Estudo concluído.'); renderCurrentView();
 }
+/* transforma o "o que você aprendeu?" de uma sessão realizada num
+   registro de Aprendizado no Diário — assim ele passa a aparecer em
+   Meu Dia, na linha do tempo e na retrospectiva da Evolução, sem
+   duplicar o texto: a sessão só guarda o ID do registro gerado, e um
+   clique de novo simplesmente abre esse mesmo registro. */
+function criarRegistroDeAprendizado(sessaoId){
+  const s = DB.getById('sessoes', sessaoId); if (!s || !s.oQueAprendi) return;
+  if (s.aprendizadoRegistroId && DB.getById('registros', s.aprendizadoRegistroId)){
+    abrirDetalheRegistroDiario(s.aprendizadoRegistroId);
+    return;
+  }
+  const novo = {
+    id: DB.nextId('REG','registro'), tipo:'Aprendizado', categoria:'Estudos',
+    titulo: `${nomeMateria(s.materiaId)} — ${s.assunto}`, texto: s.oQueAprendi,
+    data: s.data, hora: s.horarioFim || s.horarioInicio || '', humor:null, energia:null, tags:[],
+    criadoEm: Date.now(), atualizadoEm: Date.now()
+  };
+  DB.insert('registros', novo);
+  DB.update('sessoes', sessaoId, {aprendizadoRegistroId: novo.id});
+  registrarHistorico({modulo:'estudos', acao:'aprendizado', descricao:`Aprendizado de "${novo.titulo}" registrado no Diário.`, refId:novo.id});
+  showToast('✓ Aprendizado registrado no Diário.');
+  renderCurrentView();
+}
 function statusRevisao(proximaRevisaoIso){
   if (!proximaRevisaoIso) return {icone:'⚪', texto:'Sem revisão agendada', tom:'neutral'};
   if (proximaRevisaoIso < todayISO()) return {icone:'🔴', texto:'Atrasada', tom:'danger'};
@@ -201,7 +224,7 @@ function renderEstudos(){
       ${motivo?`<div class="activity-description"><em>❓ ${escapeHTML(motivo.motivo)}${motivo.motivoLivre?': '+escapeHTML(motivo.motivoLivre):''}</em></div>`:''}
     </div>
     <div class="activity-side"><div class="muted" style="font-family:var(--font-mono);font-size:12px">${formatDateBR(s.data)}</div></div>
-    <div class="activity-actions">${s.status==='Planejada'?'<button class="btn btn-sm btn-primary" data-act="concluir">✓ Concluir</button>':''}${perdida?`<button class="btn btn-sm" data-act="motivo">❓ ${motivo?'Editar motivo':'Motivo'}</button>`:''}<button class="btn btn-sm" data-act="editar">Editar</button><button class="btn btn-sm btn-danger" data-act="excluir">Excluir</button></div>
+    <div class="activity-actions">${s.status==='Planejada'?'<button class="btn btn-sm btn-primary" data-act="concluir">✓ Concluir</button>':''}${perdida?`<button class="btn btn-sm" data-act="motivo">❓ ${motivo?'Editar motivo':'Motivo'}</button>`:''}${s.oQueAprendi?`<button class="btn btn-sm" data-act="aprendizado">📖 ${s.aprendizadoRegistroId?'Ver no Diário':'Registrar no Diário'}</button>`:''}<button class="btn btn-sm" data-act="editar">Editar</button><button class="btn btn-sm btn-danger" data-act="excluir">Excluir</button></div>
   </article>`;
   }).join('') || '<p class="muted">Nenhuma sessão registrada ainda.</p>';
   document.querySelectorAll('#listaSessoes .activity-card').forEach(card => {
@@ -211,6 +234,7 @@ function renderEstudos(){
       const s = DB.getById('sessoes', id);
       abrirFormMotivo('estudo', id, s.data, `${nomeMateria(s.materiaId)} — ${s.assunto}`, () => renderEstudos());
     });
+    card.querySelector('[data-act="aprendizado"]')?.addEventListener('click', () => criarRegistroDeAprendizado(id));
     card.querySelector('[data-act="editar"]').onclick = () => openFormSessaoEstudo(id);
     card.querySelector('[data-act="excluir"]').onclick = () => confirmAction('Excluir esta sessão?', () => { DB.remove('sessoes', id); showToast('Sessão excluída.'); renderEstudos(); });
   });

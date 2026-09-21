@@ -106,11 +106,12 @@ function renderMeuDia(){
   document.getElementById('meuDiaEstudos').innerHTML = estudosHoje.length ? estudosHoje.map(s => `
     <article class="activity-card" data-id="${s.id}"><div class="activity-main"><div class="activity-title">${escapeHTML(nomeMateria(s.materiaId))} — ${escapeHTML(s.assunto)}</div>
       <div class="activity-meta"><span class="badge-pill badge-${s.status==='Planejada'?'warn':'ok'}">${s.status}</span></div></div>
-      <div class="activity-actions">${s.status==='Planejada'?'<button class="btn btn-sm btn-primary" data-act="concluir">✓ Concluir</button>':''}<button class="btn btn-sm" data-act="editar">Editar</button></div>
+      <div class="activity-actions">${s.status==='Planejada'?'<button class="btn btn-sm btn-primary" data-act="concluir">✓ Concluir</button>':''}${s.oQueAprendi?`<button class="btn btn-sm" data-act="aprendizado">📖 ${s.aprendizadoRegistroId?'Ver no Diário':'Registrar no Diário'}</button>`:''}<button class="btn btn-sm" data-act="editar">Editar</button></div>
     </article>`).join('') : '<p class="muted">Nenhum estudo planejado para hoje.</p>';
   document.querySelectorAll('#meuDiaEstudos .activity-card').forEach(card => {
     const id = card.dataset.id;
     card.querySelector('[data-act="concluir"]')?.addEventListener('click', () => concluirSessaoEstudo(id));
+    card.querySelector('[data-act="aprendizado"]')?.addEventListener('click', () => criarRegistroDeAprendizado(id));
     card.querySelector('[data-act="editar"]').onclick = () => openFormSessaoEstudo(id);
   });
 
