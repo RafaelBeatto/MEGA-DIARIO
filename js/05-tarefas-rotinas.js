@@ -104,6 +104,14 @@ function concluirTarefa(id){
   if (item.metaId && typeof registrarSnapshotProgressoMeta === 'function') registrarSnapshotProgressoMeta(item.metaId);
   renderCurrentView();
 }
+function cancelarTarefa(id){
+  const item = DB.getById('tarefas', id); if (!item) return;
+  confirmAction(`Cancelar "${item.titulo}"? Ela deixa de contar como pendente, mas fica no histórico.`, () => {
+    DB.update('tarefas', id, {status:'Cancelada'});
+    registrarHistorico({modulo:'tarefas', acao:'cancelamento', descricao:`Tarefa "${item.titulo}" cancelada.`, refId:id});
+    showToast('Tarefa cancelada.'); renderCurrentView();
+  });
+}
 function renderTarefas(){
   const filtros = getFiltrosValores('filtrosTarefas');
   let lista = DB.getAll('tarefas');
@@ -128,13 +136,14 @@ function renderTarefas(){
         <div class="activity-meta"><span class="badge-pill badge-${recorr?'warn':'primary'}">${t.recorrencia?.frequencia||'Única'}</span>${t.categoria?`<span>🏷️ ${escapeHTML(t.categoria)}</span>`:''}</div></div></div>
         <div class="activity-description">${escapeHTML(t.observacao||'Sem observações')}${motivo?`<br><em>❓ ${escapeHTML(motivo.motivo)}${motivo.motivoLivre?': '+escapeHTML(motivo.motivoLivre):''}</em>`:''}</div></div>
       <div class="activity-side"><div>${badgeHTML(badgePrioridade(t.prioridade),t.prioridade)}</div><div>${badgeHTML(pz.tom,pz.texto)}</div></div>
-      <div class="activity-actions">${atrasada?`<button class="btn btn-sm" data-act="motivo">❓ ${motivo?'Editar motivo':'Motivo'}</button>`:''}<button class="btn btn-sm btn-primary" data-act="concluir">${recorr?'✓ Fiz hoje':'✓ Concluir'}</button><button class="btn btn-sm" data-act="editar">Editar</button><button class="btn btn-sm btn-danger" data-act="excluir">Excluir</button></div>
+      <div class="activity-actions">${atrasada?`<button class="btn btn-sm" data-act="motivo">❓ ${motivo?'Editar motivo':'Motivo'}</button>`:''}${!recorr && !['Concluída','Cancelada'].includes(t.status)?'<button class="btn btn-sm" data-act="cancelar">✕ Cancelar</button>':''}<button class="btn btn-sm btn-primary" data-act="concluir">${recorr?'✓ Fiz hoje':'✓ Concluir'}</button><button class="btn btn-sm" data-act="editar">Editar</button><button class="btn btn-sm btn-danger" data-act="excluir">Excluir</button></div>
     </article>`;
   }).join('');
   box.querySelectorAll('.activity-card').forEach(card => {
     const id = card.dataset.id;
     card.querySelector('[data-act="concluir"]').onclick = () => concluirTarefa(id);
     card.querySelector('[data-act="editar"]').onclick = () => openFormTarefa(id);
+    card.querySelector('[data-act="cancelar"]')?.addEventListener('click', () => cancelarTarefa(id));
     card.querySelector('[data-act="motivo"]')?.addEventListener('click', () => {
       const t = DB.getById('tarefas', id);
       abrirFormMotivo('tarefa', id, prazoTarefa(t).data, t.titulo, () => renderTarefas());
@@ -192,10 +201,15 @@ function openFormRotina(id){
       <option value="mensal" ${rec.frequencia==='mensal'?'selected':''}>Mensalmente</option>
     </select></div>
     <div class="field full" id="rtDiasSemanaBox"><label>Dias da semana</label><div style="display:flex;flex-wrap:wrap;gap:8px">${DIAS_SEMANA_LABELS.map((l,i)=>`<label style="display:flex;align-items:center;gap:4px;font-size:12.5px"><input type="checkbox" class="rt-dia" value="${i}" ${(rec.diasSemana||[]).includes(i)?'checked':''}>${l}</label>`).join('')}</div></div>
+    <div class="field" id="rtDiaSemanaBox"><label for="rt_diaSemana">Qual dia da semana?</label><select class="input" id="rt_diaSemana">${DIAS_SEMANA_LABELS.map((l,i)=>`<option value="${i}" ${Number(rec.diaSemana ?? 1)===i?'selected':''}>${l}</option>`).join('')}</select></div>
     <div class="field" id="rtDiaMesBox"><label for="rt_diaMes">Dia do mês</label><input class="input" type="number" min="1" max="31" id="rt_diaMes" value="${rec.diaMes||new Date().getDate()}"></div>
   </div><p class="field-error" id="rtErro" hidden></p><div class="modal-actions"><button type="button" class="btn btn-ghost" id="rtCancelar">Cancelar</button><button type="submit" class="btn btn-primary">${item?'Salvar alterações':'Criar rotina'}</button></div></form>`);
-  const freqEl = document.getElementById('rt_frequencia'), diasBox = document.getElementById('rtDiasSemanaBox'), mesBox = document.getElementById('rtDiaMesBox');
-  function toggle(){ diasBox.style.display = freqEl.value==='dias_semana'?'block':'none'; mesBox.style.display = freqEl.value==='mensal'?'flex':'none'; }
+  const freqEl = document.getElementById('rt_frequencia'), diasBox = document.getElementById('rtDiasSemanaBox'), diaSemanaBox = document.getElementById('rtDiaSemanaBox'), mesBox = document.getElementById('rtDiaMesBox');
+  function toggle(){
+    diasBox.style.display = freqEl.value==='dias_semana'?'block':'none';
+    diaSemanaBox.style.display = freqEl.value==='semanal'?'flex':'none';
+    mesBox.style.display = freqEl.value==='mensal'?'flex':'none';
+  }
   freqEl.addEventListener('change', toggle); toggle();
   document.getElementById('rtCancelar').onclick = closeModal;
   onSubmitGuarded(document.getElementById('formRotina'), () => {
@@ -204,6 +218,7 @@ function openFormRotina(id){
     const freq = freqEl.value;
     const recorrencia = {frequencia:freq};
     if (freq==='dias_semana') recorrencia.diasSemana = [...document.querySelectorAll('.rt-dia:checked')].map(c=>Number(c.value));
+    if (freq==='semanal') recorrencia.diaSemana = Number(document.getElementById('rt_diaSemana').value)||1;
     if (freq==='mensal') recorrencia.diaMes = Number(document.getElementById('rt_diaMes').value)||1;
     const dados = {titulo, categoria: document.getElementById('rt_categoria').value.trim(), horario: document.getElementById('rt_horario').value, recorrencia, ativo: item?.ativo ?? true};
     if (item){ DB.update('rotinas', item.id, dados); showToast('✓ Rotina atualizada.'); }
@@ -224,7 +239,7 @@ function renderRotinas(){
   if (!lista.length) vazio.innerHTML = 'Você ainda não tem rotinas. Cadastre atividades que se repetem — estudar, treinar, ler — e elas aparecem sozinhas na Agenda e no Meu Dia. <button class="btn btn-sm btn-primary" id="vazioRotinasBtn" style="margin-top:8px">＋ Criar primeira rotina</button>';
   if (!lista.length) document.getElementById('vazioRotinasBtn').onclick = () => openFormRotina();
   const hoje = todayISO();
-  const freqLabel = r => ({diaria:'Diariamente', dias_semana:(r.recorrencia.diasSemana||[]).map(d=>DIAS_SEMANA_LABELS[d].slice(0,3)).join(', '), semanal:'Semanalmente', mensal:`Todo dia ${r.recorrencia.diaMes}`})[r.recorrencia.frequencia];
+  const freqLabel = r => ({diaria:'Diariamente', dias_semana:(r.recorrencia.diasSemana||[]).map(d=>DIAS_SEMANA_LABELS[d].slice(0,3)).join(', '), semanal:`Toda ${DIAS_SEMANA_LABELS[Number(r.recorrencia.diaSemana ?? 1)]}`, mensal:`Todo dia ${r.recorrencia.diaMes}`})[r.recorrencia.frequencia];
   box.innerHTML = lista.map(r => {
     const ocorreHoje = rotinaOcorreEm(r, hoje) && r.ativo;
     const feita = rotinaConcluidaEm(r.id, hoje);

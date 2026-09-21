@@ -180,28 +180,45 @@ function buscarNoDiario(termo){
   const semanas = DB.getAll('semanas').filter(s => [...Object.values(s.revisao||{}), ...Object.values(s.planejamento||{}), ...(s.objetivos||[]).map(o=>o.titulo)].join(' ').toLowerCase().includes(q));
   return {registros, sessoes, tarefas, metas, reflexoes, eventos, rotinas, semanas};
 }
+/* fonte única dos grupos de busca — usada pela view Memória e pelo
+   modal de Busca global (Ctrl+K), para nunca mais precisar atualizar
+   os dois lugares quando uma entidade nova entrar na pesquisa */
+function blocosDeBusca(termo){
+  const r = buscarNoDiario(termo);
+  return [
+    {titulo:'📝 Diário', itens:r.registros, render:x=>({titulo:x.titulo, sub:x.tipo, data:x.data, go:()=>abrirDetalheRegistroDiario(x.id)})},
+    {titulo:'📚 Estudos', itens:r.sessoes, render:x=>({titulo:`${nomeMateria(x.materiaId)} — ${x.assunto}`, sub:x.status, data:x.data, go:()=>openFormSessaoEstudo(x.id)})},
+    {titulo:'✅ Tarefas', itens:r.tarefas, render:x=>({titulo:x.titulo, sub:x.status, data:x.prazo, go:()=>openFormTarefa(x.id)})},
+    {titulo:'🎯 Metas', itens:r.metas, render:x=>({titulo:x.titulo, sub:x.status, data:x.prazo, go:()=>abrirDetalheMeta(x.id)})},
+    {titulo:'💭 Reflexões', itens:r.reflexoes, render:x=>({titulo:'Reflexão', sub:'', data:x.data, go:()=>abrirDetalheReflexao(x.id)})},
+    {titulo:'🗓️ Agenda', itens:r.eventos, render:x=>({titulo:x.titulo, sub:x.tipo, data:x.data, go:()=>abrirDetalheEvento(x.id)})},
+    {titulo:'🔄 Rotinas', itens:r.rotinas, render:x=>({titulo:x.titulo, sub:x.categoria, data:null, go:()=>openFormRotina(x.id)})},
+    {titulo:'📆 Revisões semanais', itens:r.semanas, render:x=>({titulo:tituloSemana(x.id), sub:'', data:x.id, go:()=>{ semanaAtualInicio = x.id; goToView('semana'); }})}
+  ].filter(b => b.itens.length);
+}
+function destacarTermo(texto, termo){
+  if (!termo) return escapeHTML(texto);
+  const escapado = escapeHTML(texto);
+  const termoEsc = termo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return escapado.replace(new RegExp(`(${termoEsc})`, 'ig'), '<mark>$1</mark>');
+}
+/* renderiza os resultados dentro de qualquer container; opts.aoNavegar()
+   roda antes do go() de cada item (ex.: fechar o modal), opts.limite
+   corta quantos itens aparecem por grupo (a Memória mostra tudo; o
+   modal de busca rápida mostra só os primeiros, para ficar compacto) */
+function renderResultadosBusca(container, termo, opts){
+  opts = opts || {};
+  if (!termo.trim()){ container.innerHTML = '<p class="muted">Digite um termo para pesquisar em todo o seu Mega Diário.</p>'; return; }
+  const blocos = blocosDeBusca(termo);
+  if (!blocos.length){ container.innerHTML = `<p class="muted">Nenhum resultado para "${escapeHTML(termo)}".</p>`; return; }
+  container.innerHTML = blocos.map((b,bi) => `<div class="search-group"><div class="search-group-head">${b.titulo} <span class="muted">${b.itens.length} resultado${b.itens.length===1?'':'s'}</span></div>
+    <div class="attention-list">${b.itens.slice(0,opts.limite||b.itens.length).map((it,i) => { const rr = b.render(it); return `<div class="attn-item" data-b="${bi}" data-i="${i}"><div class="attn-main"><div class="attn-title">${destacarTermo(rr.titulo, termo)}</div><div class="attn-sub">${rr.data?formatDateBR(rr.data):''} ${rr.sub?'· '+escapeHTML(rr.sub):''}</div></div></div>`; }).join('')}</div></div>`).join('');
+  blocos.forEach((b,bi) => container.querySelectorAll(`[data-b="${bi}"]`).forEach(el => el.addEventListener('click', () => { opts.aoNavegar?.(); b.render(b.itens[Number(el.dataset.i)]).go(); })));
+}
 function renderMemoria(){
   const input = document.getElementById('buscaMemoriaInput');
-  function render(){
-    const termo = input.value;
-    const container = document.getElementById('resultadosMemoria');
-    if (!termo.trim()){ container.innerHTML = '<p class="muted">Digite um termo para pesquisar em todo o seu Mega Diário.</p>'; return; }
-    const r = buscarNoDiario(termo);
-    const blocos = [
-      {titulo:'Diário', itens:r.registros, render:x=>({titulo:x.titulo, data:x.data, sub:x.tipo, go:()=>abrirDetalheRegistroDiario(x.id)})},
-      {titulo:'Estudos', itens:r.sessoes, render:x=>({titulo:`${nomeMateria(x.materiaId)} — ${x.assunto}`, data:x.data, sub:x.status, go:()=>openFormSessaoEstudo(x.id)})},
-      {titulo:'Tarefas', itens:r.tarefas, render:x=>({titulo:x.titulo, data:x.prazo, sub:x.status, go:()=>openFormTarefa(x.id)})},
-      {titulo:'Metas', itens:r.metas, render:x=>({titulo:x.titulo, data:x.prazo, sub:x.status, go:()=>abrirDetalheMeta(x.id)})},
-      {titulo:'Reflexões', itens:r.reflexoes, render:x=>({titulo:'Reflexão', data:x.data, sub:'', go:()=>abrirDetalheReflexao(x.id)})},
-      {titulo:'Agenda', itens:r.eventos, render:x=>({titulo:x.titulo, data:x.data, sub:x.tipo, go:()=>abrirDetalheEvento(x.id)})},
-      {titulo:'Rotinas', itens:r.rotinas, render:x=>({titulo:x.titulo, data:null, sub:x.categoria, go:()=>openFormRotina(x.id)})},
-      {titulo:'Revisões semanais', itens:r.semanas, render:x=>({titulo:tituloSemana(x.id), data:x.id, sub:'', go:()=>{ semanaAtualInicio = x.id; goToView('semana'); }})}
-    ].filter(b => b.itens.length);
-    if (!blocos.length){ container.innerHTML = `<p class="muted">Não encontramos resultados para "${escapeHTML(termo)}".</p>`; return; }
-    container.innerHTML = blocos.map((b,bi) => `<div class="panel"><div class="panel-head"><h2>${b.titulo}</h2><span class="muted">${b.itens.length} resultado${b.itens.length===1?'':'s'}</span></div>
-      <div class="attention-list">${b.itens.map((it,i) => { const rr = b.render(it); return `<div class="attn-item" data-b="${bi}" data-i="${i}"><div class="attn-main"><div class="attn-title">${escapeHTML(rr.titulo)}</div><div class="attn-sub">${rr.data?formatDateBR(rr.data):''} ${rr.sub?'· '+escapeHTML(rr.sub):''}</div></div></div>`; }).join('')}</div></div>`).join('');
-    blocos.forEach((b,bi) => container.querySelectorAll(`[data-b="${bi}"]`).forEach(el => el.addEventListener('click', () => b.render(b.itens[Number(el.dataset.i)]).go())));
-  }
+  const container = document.getElementById('resultadosMemoria');
+  function render(){ renderResultadosBusca(container, input.value); }
   input.removeEventListener('input', input._handler || (()=>{}));
   input._handler = render;
   input.addEventListener('input', render);

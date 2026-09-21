@@ -45,36 +45,14 @@ function refreshNotifBadge(){
 document.getElementById('btnNotificacoes').addEventListener('click', () => { notifDropdownAberto ? fecharNotifDropdown() : abrirNotifDropdown(); });
 
 /* ---------------- busca global ---------------- */
-function destacarTermo(texto, termo){
-  if (!termo) return escapeHTML(texto);
-  const escapado = escapeHTML(texto);
-  const termoEsc = termo.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return escapado.replace(new RegExp(`(${termoEsc})`, 'ig'), '<mark>$1</mark>');
-}
+/* o modal reaproveita blocosDeBusca/renderResultadosBusca (js/10-evolucao-memoria.js) —
+   a mesma fonte de dados e navegação usada pela view Memória, só muda o
+   container e o fato de fechar o modal antes de navegar */
 function abrirBuscaGlobal(){
   openModal('🔍 Busca global', `<div class="field full"><input class="input input-wide" id="buscaGlobalInput" placeholder="Pesquisar em diário, estudos, tarefas, metas, reflexões, agenda, rotinas e revisões..." autocomplete="off"></div><div id="buscaGlobalResultados" style="margin-top:14px"></div>`);
   const input = document.getElementById('buscaGlobalInput');
   input.focus();
-  function render(){
-    const termo = input.value;
-    const container = document.getElementById('buscaGlobalResultados');
-    if (!termo.trim()){ container.innerHTML = '<p class="muted">Digite um termo para pesquisar em todo o seu Mega Diário.</p>'; return; }
-    const r = buscarNoDiario(termo);
-    const blocos = [
-      {titulo:'📝 Diário', itens:r.registros, render:x=>({titulo:x.titulo, sub:x.tipo, data:x.data, go:()=>{closeModal();abrirDetalheRegistroDiario(x.id);}})},
-      {titulo:'📚 Estudos', itens:r.sessoes, render:x=>({titulo:`${nomeMateria(x.materiaId)} — ${x.assunto}`, sub:x.status, data:x.data, go:()=>{closeModal();openFormSessaoEstudo(x.id);}})},
-      {titulo:'✅ Tarefas', itens:r.tarefas, render:x=>({titulo:x.titulo, sub:x.status, data:x.prazo, go:()=>{closeModal();openFormTarefa(x.id);}})},
-      {titulo:'🎯 Metas', itens:r.metas, render:x=>({titulo:x.titulo, sub:x.status, data:x.prazo, go:()=>{closeModal();abrirDetalheMeta(x.id);}})},
-      {titulo:'💭 Reflexões', itens:r.reflexoes, render:x=>({titulo:'Reflexão', sub:'', data:x.data, go:()=>{closeModal();abrirDetalheReflexao(x.id);}})},
-      {titulo:'🗓️ Agenda', itens:r.eventos, render:x=>({titulo:x.titulo, sub:x.tipo, data:x.data, go:()=>{closeModal();abrirDetalheEvento(x.id);}})},
-      {titulo:'🔄 Rotinas', itens:r.rotinas, render:x=>({titulo:x.titulo, sub:x.categoria, data:null, go:()=>{closeModal();openFormRotina(x.id);}})},
-      {titulo:'📆 Revisões semanais', itens:r.semanas, render:x=>({titulo:tituloSemana(x.id), sub:'', data:x.id, go:()=>{closeModal(); semanaAtualInicio = x.id; goToView('semana');}})}
-    ].filter(b => b.itens.length);
-    if (!blocos.length){ container.innerHTML = `<p class="muted">Nenhum resultado para "${escapeHTML(termo)}".</p>`; return; }
-    container.innerHTML = blocos.map((b,bi) => `<div class="search-group"><div class="search-group-head">${b.titulo} <span class="muted">${b.itens.length}</span></div>
-      <div class="attention-list">${b.itens.slice(0,8).map((it,i) => { const rr = b.render(it); return `<div class="attn-item" data-b="${bi}" data-i="${i}"><div class="attn-main"><div class="attn-title">${destacarTermo(rr.titulo, termo)}</div><div class="attn-sub">${rr.data?formatDateBR(rr.data):''} ${rr.sub?'· '+escapeHTML(rr.sub):''}</div></div></div>`; }).join('')}</div></div>`).join('');
-    blocos.forEach((b,bi) => container.querySelectorAll(`[data-b="${bi}"]`).forEach(el => el.addEventListener('click', () => b.render(b.itens[Number(el.dataset.i)]).go())));
-  }
+  function render(){ renderResultadosBusca(document.getElementById('buscaGlobalResultados'), input.value, {aoNavegar: closeModal, limite: 8}); }
   input.addEventListener('input', render);
   render();
 }
