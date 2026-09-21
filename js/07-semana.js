@@ -204,6 +204,7 @@ function resumoAutomaticoSemanaHTML(mondayIso){
   const registros = DB.getAll('registros').filter(r => r.data>=ini && r.data<=fim);
   const importantes = registros.filter(r => ['Conquista','Momento importante','Acontecimento'].includes(r.tipo)).slice(0,6);
   const aprendizados = registros.filter(r => r.tipo === 'Aprendizado').slice(0,6);
+  const reflexoesSemana = DB.getAll('reflexoes').filter(r => r.data>=ini && r.data<=fim);
   const objetivosPendentes = (semana?.objetivos||[]).filter(o=>o.status!=='Concluído');
   const bloco = (label, html) => `<div class="detail-block"><div class="detail-label">${label}</div><div class="detail-value">${html}</div></div>`;
   return `<div class="panel" style="margin-bottom:16px">
@@ -218,6 +219,10 @@ function resumoAutomaticoSemanaHTML(mondayIso){
     ${motivos.length ? bloco('Por que algumas coisas não aconteceram', motivos.map(m=>`${escapeHTML(m.motivo)}${m.motivoLivre?': '+escapeHTML(m.motivoLivre):''}`).join('<br>')) : ''}
     ${importantes.length ? bloco('O que aconteceu de importante (do Diário)', importantes.map(r=>escapeHTML(r.titulo)).join('<br>')) : ''}
     ${aprendizados.length ? bloco('O que você marcou como Aprendizado', aprendizados.map(r=>escapeHTML(r.titulo)).join('<br>')) : ''}
+    ${reflexoesSemana.length ? bloco('Reflexões da semana', reflexoesSemana.map(r => {
+      const resumo = r.textoLivre || Object.values(r.respostas||{})[0] || 'Sem conteúdo escrito.';
+      return `${formatDateBR(r.data)}: ${escapeHTML(resumo.slice(0,80))}${resumo.length>80?'…':''}`;
+    }).join('<br>')) : ''}
   </div>`;
 }
 function abrirFluxoDomingo(){

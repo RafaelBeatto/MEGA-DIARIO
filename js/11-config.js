@@ -27,7 +27,11 @@ function importarBackupCompleto(file){
       const dados = JSON.parse(texto);
       if (dados?.formato !== 'backup-completo') throw new Error('Formato de backup não suportado');
       Object.entries(dados.dados||{}).forEach(([key, value]) => {
-        if (STORAGE_KEYS[key]) DB._write(STORAGE_KEYS[key], value);
+        if (!STORAGE_KEYS[key]) return;
+        // entidade sem nenhum dado no momento do backup: grava o "vazio"
+        // correto (array ou config padrão) em vez do literal null
+        const normalizado = value !== null ? value : (key === 'config' ? { theme:'dark', counters:{} } : []);
+        DB._write(STORAGE_KEYS[key], normalizado);
       });
       showToast('✓ Backup restaurado. A página será recarregada.');
       setTimeout(() => location.reload(), 700);
