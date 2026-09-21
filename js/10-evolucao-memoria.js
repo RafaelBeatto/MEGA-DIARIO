@@ -55,12 +55,26 @@ function renderRetrospectiva(){
         </div>
         ${semana.revisao ? `<h3 class="report-section-title">Sua revisão desta semana</h3><div class="history-list">${PERGUNTAS_REVISAO.filter(([k])=>semana.revisao[k]).map(([k,label])=>`<div class="history-row"><strong>${label}</strong><br>${escapeHTML(semana.revisao[k])}</div>`).join('') || '<p class="muted">Sem respostas registradas.</p>'}</div>` : ''}
       ` : ''}
-      <h3 class="report-section-title">Registros importantes do período</h3>
-      <div class="history-list">${registros.slice(0,10).map(r => `<div class="history-row"><span class="h-meta">${formatDateBR(r.data)}</span><br>${tipoRegistroIcon(r.tipo)} ${escapeHTML(r.titulo)}</div>`).join('') || '<p class="muted">Nenhum registro no período.</p>'}</div>
+      ${renderRegistrosAgrupadosPorTipo(registros)}
     </div>`;
   document.getElementById('retroModoSelect').addEventListener('change', e => { retroModo = e.target.value; renderRetrospectiva(); });
   document.getElementById('retroPrev').addEventListener('click', () => { if (retroModo==='semana') retroData.setDate(retroData.getDate()-7); else if (retroModo==='ano') retroData.setFullYear(retroData.getFullYear()-1); else retroData.setMonth(retroData.getMonth()-1); renderRetrospectiva(); });
   document.getElementById('retroNext').addEventListener('click', () => { if (retroModo==='semana') retroData.setDate(retroData.getDate()+7); else if (retroModo==='ano') retroData.setFullYear(retroData.getFullYear()+1); else retroData.setMonth(retroData.getMonth()+1); renderRetrospectiva(); });
+}
+
+const ORDEM_TIPOS_RETROSPECTIVA = ['Conquista','Aprendizado','Problema','Acontecimento','Momento importante','Ideia','Gratidão','Pensamento','Reflexão','Observação','Outro'];
+function renderRegistrosAgrupadosPorTipo(registros){
+  if (!registros.length) return '<h3 class="report-section-title">Registros do período</h3><p class="muted">Nenhum registro no período.</p>';
+  const porTipo = {};
+  registros.forEach(r => { (porTipo[r.tipo] = porTipo[r.tipo] || []).push(r); });
+  const tipos = Object.keys(porTipo).sort((a,b) => {
+    const ia = ORDEM_TIPOS_RETROSPECTIVA.indexOf(a), ib = ORDEM_TIPOS_RETROSPECTIVA.indexOf(b);
+    return (ia===-1?99:ia) - (ib===-1?99:ib);
+  });
+  return `<h3 class="report-section-title">Registros do período, por tipo</h3>` + tipos.map(tipo => `
+    <div class="detail-block"><div class="detail-label">${tipoRegistroIcon(tipo)} ${escapeHTML(tipo)} (${porTipo[tipo].length})</div>
+      <div class="history-list">${porTipo[tipo].slice(0,6).map(r => `<div class="history-row"><span class="h-meta">${formatDateBR(r.data)}</span><br>${escapeHTML(r.titulo)}</div>`).join('')}</div>
+    </div>`).join('');
 }
 
 function renderBarraEstudoSemana(ini, fim){
@@ -155,14 +169,16 @@ document.querySelectorAll('#evolucaoTabs .diario-tab').forEach(t => t.addEventLi
    --------------------------------------------------------- */
 function buscarNoDiario(termo){
   const q = termo.trim().toLowerCase();
-  if (!q) return {registros:[], sessoes:[], tarefas:[], metas:[], reflexoes:[], eventos:[]};
+  if (!q) return {registros:[], sessoes:[], tarefas:[], metas:[], reflexoes:[], eventos:[], rotinas:[], semanas:[]};
   const registros = DB.getAll('registros').filter(r => [r.titulo,r.texto,r.categoria,...(r.tags||[])].join(' ').toLowerCase().includes(q));
   const sessoes = DB.getAll('sessoes').filter(s => [nomeMateria(s.materiaId),s.assunto,s.oQueAprendi,s.observacoes].join(' ').toLowerCase().includes(q));
   const tarefas = DB.getAll('tarefas').filter(t => [t.titulo,t.categoria,t.observacao].join(' ').toLowerCase().includes(q));
   const metas = DB.getAll('metas').filter(m => [m.titulo,m.descricao,m.observacoes].join(' ').toLowerCase().includes(q));
-  const reflexoes = DB.getAll('reflexoes').filter(r => [r.textoLivre, ...Object.values(r.respostas||{})].join(' ').toLowerCase().includes(q));
+  const reflexoes = DB.getAll('reflexoes').filter(r => [r.textoLivre, r.categoria, ...(r.tags||[]), ...Object.values(r.respostas||{})].join(' ').toLowerCase().includes(q));
   const eventos = DB.getAll('eventos').filter(e => [e.titulo,e.descricao,e.local].join(' ').toLowerCase().includes(q));
-  return {registros, sessoes, tarefas, metas, reflexoes, eventos};
+  const rotinas = DB.getAll('rotinas').filter(r => [r.titulo, r.categoria].join(' ').toLowerCase().includes(q));
+  const semanas = DB.getAll('semanas').filter(s => [...Object.values(s.revisao||{}), ...Object.values(s.planejamento||{}), ...(s.objetivos||[]).map(o=>o.titulo)].join(' ').toLowerCase().includes(q));
+  return {registros, sessoes, tarefas, metas, reflexoes, eventos, rotinas, semanas};
 }
 function renderMemoria(){
   const input = document.getElementById('buscaMemoriaInput');
@@ -177,7 +193,9 @@ function renderMemoria(){
       {titulo:'Tarefas', itens:r.tarefas, render:x=>({titulo:x.titulo, data:x.prazo, sub:x.status, go:()=>openFormTarefa(x.id)})},
       {titulo:'Metas', itens:r.metas, render:x=>({titulo:x.titulo, data:x.prazo, sub:x.status, go:()=>abrirDetalheMeta(x.id)})},
       {titulo:'Reflexões', itens:r.reflexoes, render:x=>({titulo:'Reflexão', data:x.data, sub:'', go:()=>abrirDetalheReflexao(x.id)})},
-      {titulo:'Agenda', itens:r.eventos, render:x=>({titulo:x.titulo, data:x.data, sub:x.tipo, go:()=>abrirDetalheEvento(x.id)})}
+      {titulo:'Agenda', itens:r.eventos, render:x=>({titulo:x.titulo, data:x.data, sub:x.tipo, go:()=>abrirDetalheEvento(x.id)})},
+      {titulo:'Rotinas', itens:r.rotinas, render:x=>({titulo:x.titulo, data:null, sub:x.categoria, go:()=>openFormRotina(x.id)})},
+      {titulo:'Revisões semanais', itens:r.semanas, render:x=>({titulo:tituloSemana(x.id), data:x.id, sub:'', go:()=>{ semanaAtualInicio = x.id; goToView('semana'); }})}
     ].filter(b => b.itens.length);
     if (!blocos.length){ container.innerHTML = `<p class="muted">Não encontramos resultados para "${escapeHTML(termo)}".</p>`; return; }
     container.innerHTML = blocos.map((b,bi) => `<div class="panel"><div class="panel-head"><h2>${b.titulo}</h2><span class="muted">${b.itens.length} resultado${b.itens.length===1?'':'s'}</span></div>

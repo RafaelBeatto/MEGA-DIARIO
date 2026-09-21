@@ -216,6 +216,8 @@ textarea{
 .activity-actions{ grid-column: 1/-1; display:flex; justify-content:flex-end; gap:6px; flex-wrap:wrap; padding-top:4px; border-top:1px solid var(--border); }
 .activity-day{ font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin: 14px 0 4px; }
 .activity-row{ display:flex; gap:10px; font-size:13px; padding: 6px 0; border-bottom: 1px dashed var(--border); align-items:center; }
+.timeline-row{ cursor:pointer; border-radius:4px; }
+.timeline-row:hover{ background: var(--surface-2); }
 .activity-time{ font-family: var(--font-mono); color: var(--muted); flex-shrink:0; width:50px; }
 
 .history-row{ background: var(--surface); border:1px solid var(--border); border-radius: var(--radius-sm); padding:10px 12px; font-size:13px; }
@@ -399,4 +401,14 @@ mark{ background: var(--warn-soft); color: var(--warn); border-radius:3px; paddi
   .bottom-nav-item span{ font-size:19px; }
   .bottom-nav-item.is-active{ color: var(--primary); }
   .notif-dropdown{ right:12px !important; }
+  /* formulários: uma coluna, alvos de toque maiores e fonte >=16px
+     (evita o zoom automático do iOS ao focar um campo) */
+  .form-grid{ grid-template-columns: 1fr; }
+  .input, textarea, select.input{ font-size:16px; }
+  .btn{ min-height:40px; }
+  .btn-sm{ min-height:36px; }
+  .icon-btn{ width:42px; height:42px; }
+  .modal-body{ padding:16px; }
+  .modal-actions{ flex-wrap:wrap; }
+  .modal-actions .btn{ flex:1; justify-content:center; min-width:100px; }
 }

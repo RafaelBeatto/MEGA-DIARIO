@@ -121,18 +121,24 @@ function renderTarefas(){
     document.getElementById('vazioTarefasBtn')?.addEventListener('click', () => openFormTarefa());
   }
   box.innerHTML = lista.map(t => { const pz = prazoTarefa(t); const recorr = !!t.recorrencia;
-    return `<article class="activity-card ${tarefaAtrasada(t)?'is-late':''}" data-id="${t.id}">
+    const atrasada = tarefaAtrasada(t);
+    const motivo = atrasada ? motivoDoItem('tarefa', t.id, pz.data) : null;
+    return `<article class="activity-card ${atrasada?'is-late':''}" data-id="${t.id}">
       <div class="activity-main"><div class="activity-title-row"><span class="activity-icon">${recorr?'🔄':'✅'}</span><div><div class="activity-title">${escapeHTML(t.titulo)}</div>
         <div class="activity-meta"><span class="badge-pill badge-${recorr?'warn':'primary'}">${t.recorrencia?.frequencia||'Única'}</span>${t.categoria?`<span>🏷️ ${escapeHTML(t.categoria)}</span>`:''}</div></div></div>
-        <div class="activity-description">${escapeHTML(t.observacao||'Sem observações')}</div></div>
+        <div class="activity-description">${escapeHTML(t.observacao||'Sem observações')}${motivo?`<br><em>❓ ${escapeHTML(motivo.motivo)}${motivo.motivoLivre?': '+escapeHTML(motivo.motivoLivre):''}</em>`:''}</div></div>
       <div class="activity-side"><div>${badgeHTML(badgePrioridade(t.prioridade),t.prioridade)}</div><div>${badgeHTML(pz.tom,pz.texto)}</div></div>
-      <div class="activity-actions"><button class="btn btn-sm btn-primary" data-act="concluir">${recorr?'✓ Fiz hoje':'✓ Concluir'}</button><button class="btn btn-sm" data-act="editar">Editar</button><button class="btn btn-sm btn-danger" data-act="excluir">Excluir</button></div>
+      <div class="activity-actions">${atrasada?`<button class="btn btn-sm" data-act="motivo">❓ ${motivo?'Editar motivo':'Motivo'}</button>`:''}<button class="btn btn-sm btn-primary" data-act="concluir">${recorr?'✓ Fiz hoje':'✓ Concluir'}</button><button class="btn btn-sm" data-act="editar">Editar</button><button class="btn btn-sm btn-danger" data-act="excluir">Excluir</button></div>
     </article>`;
   }).join('');
   box.querySelectorAll('.activity-card').forEach(card => {
     const id = card.dataset.id;
     card.querySelector('[data-act="concluir"]').onclick = () => concluirTarefa(id);
     card.querySelector('[data-act="editar"]').onclick = () => openFormTarefa(id);
+    card.querySelector('[data-act="motivo"]')?.addEventListener('click', () => {
+      const t = DB.getById('tarefas', id);
+      abrirFormMotivo('tarefa', id, prazoTarefa(t).data, t.titulo, () => renderTarefas());
+    });
     card.querySelector('[data-act="excluir"]').onclick = () => confirmAction('Excluir esta tarefa?', () => {
       const t = DB.getById('tarefas', id); DB.remove('tarefas', id);
       registrarHistorico({modulo:'tarefas', acao:'exclusão', descricao:`Tarefa "${t.titulo}" excluída.`, refId:id});

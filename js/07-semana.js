@@ -41,9 +41,10 @@ function excluirObjetivoSemana(objetivoId){
   showToast('Objetivo removido.'); renderSemana();
 }
 
-function renderSemana(){
+let semanaSubTab = 'planejamento';
+
+function renderSemanaPlanejamento(){
   const semana = getOrCreateSemana(semanaAtualInicio);
-  document.getElementById('semanaTitulo').textContent = tituloSemana(semanaAtualInicio);
   const dias = diasDaSemana(semanaAtualInicio);
   const sessoes = DB.getAll('sessoes').filter(s => mondayOf(s.data) === semanaAtualInicio);
   const tarefas = DB.getAll('tarefas').map(t=>({...t,_data:prazoTarefa(t).data})).filter(t => t._data && mondayOf(t._data) === semanaAtualInicio);
@@ -53,11 +54,14 @@ function renderSemana(){
   box.innerHTML = `
     <div class="panel">
       <div class="panel-head"><h2>🎯 Objetivos da semana</h2><button class="btn btn-sm btn-primary" id="semNovoObjetivo">＋ Objetivo</button></div>
-      ${semana.objetivos.length ? semana.objetivos.map(o => `
+      ${semana.objetivos.length ? semana.objetivos.map(o => {
+        const passada = semanaAtualInicio < mondayOf(todayISO());
+        const motivo = o.status!=='Concluído' ? motivoDoItem('objetivo', o.id, semanaAtualInicio) : null;
+        return `
         <div class="attn-item" data-obj="${o.id}"><div class="attn-dot" style="background:${o.status==='Concluído'?'var(--ok)':'var(--warn)'}"></div>
-          <div class="attn-main"><div class="attn-title">${escapeHTML(o.titulo)} ${badgeHTML(badgePrioridade(o.prioridade),o.prioridade)}</div><div class="attn-sub">${escapeHTML(o.descricao||'')} · Progresso: ${o.progresso||0}%</div></div>
-          <div class="activity-actions"><button class="btn btn-sm" data-act="editar">Editar</button><button class="btn btn-sm btn-danger" data-act="excluir">Excluir</button></div>
-        </div>`).join('') : '<p class="muted">Nenhum objetivo definido para esta semana ainda.</p>'}
+          <div class="attn-main"><div class="attn-title">${escapeHTML(o.titulo)} ${badgeHTML(badgePrioridade(o.prioridade),o.prioridade)}</div><div class="attn-sub">${escapeHTML(o.descricao||'')} · Progresso: ${o.progresso||0}%${motivo?`<br><em>❓ ${escapeHTML(motivo.motivo)}${motivo.motivoLivre?': '+escapeHTML(motivo.motivoLivre):''}</em>`:''}</div></div>
+          <div class="activity-actions">${(passada && o.status!=='Concluído')?`<button class="btn btn-sm" data-act="motivo">❓ ${motivo?'Editar motivo':'Motivo'}</button>`:''}<button class="btn btn-sm" data-act="editar">Editar</button><button class="btn btn-sm btn-danger" data-act="excluir">Excluir</button></div>
+        </div>`; }).join('') : '<p class="muted">Nenhum objetivo definido para esta semana ainda.</p>'}
     </div>
 
     <div class="panel">
@@ -94,6 +98,10 @@ function renderSemana(){
     const id = el.dataset.obj;
     el.querySelector('[data-act="editar"]').onclick = () => openFormObjetivoSemana(id);
     el.querySelector('[data-act="excluir"]').onclick = () => confirmAction('Remover este objetivo?', () => excluirObjetivoSemana(id));
+    el.querySelector('[data-act="motivo"]')?.addEventListener('click', () => {
+      const o = semana.objetivos.find(x=>x.id===id);
+      abrirFormMotivo('objetivo', id, semanaAtualInicio, o.titulo, () => renderSemana());
+    });
   });
   box.querySelectorAll('[data-ses]').forEach(el => el.addEventListener('click', () => openFormSessaoEstudo(el.dataset.ses)));
   box.querySelectorAll('[data-tar]').forEach(el => el.addEventListener('click', () => openFormTarefa(el.dataset.tar)));
@@ -101,6 +109,36 @@ function renderSemana(){
   box.querySelectorAll('[data-plan-tarefa]').forEach(el => el.addEventListener('click', () => openFormTarefa(null, el.dataset.planTarefa)));
   agendaBindChips(box, compromissos);
 }
+
+function renderSemanaPlanejadoRealizado(){
+  const cmp = planejadoRealizadoSemana(semanaAtualInicio);
+  const linhas = [
+    ['📚 Estudos', cmp.estudos],
+    ['✅ Tarefas', cmp.tarefas],
+    ['🔄 Rotinas', cmp.rotinas],
+    ['🗓️ Compromissos', cmp.compromissos]
+  ];
+  document.getElementById('semanaConteudo').innerHTML = `
+    <p class="muted" style="margin-bottom:14px">Um retrato da sua rotina real nesta semana — não é uma nota de desempenho.</p>
+    <div class="two-col">
+      <div class="panel">
+        <div class="panel-head"><h2>Semana planejada</h2></div>
+        <div class="stat-grid">${linhas.map(([l,v])=>`<div class="stat-card c-primary"><div class="stat-num">${v.planejado}</div><div class="stat-label">${l}</div></div>`).join('')}</div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Semana realizada</h2></div>
+        <div class="stat-grid">${linhas.map(([l,v])=>`<div class="stat-card c-ok"><div class="stat-num">${v.realizado}</div><div class="stat-label">${l}</div></div>`).join('')}</div>
+      </div>
+    </div>`;
+}
+
+function renderSemana(){
+  document.getElementById('semanaTitulo').textContent = tituloSemana(semanaAtualInicio);
+  document.querySelectorAll('#semanaSubTabs [data-subtab]').forEach(b => b.classList.toggle('is-active', b.dataset.subtab===semanaSubTab));
+  if (semanaSubTab === 'comparativo') renderSemanaPlanejadoRealizado();
+  else renderSemanaPlanejamento();
+}
+document.querySelectorAll('#semanaSubTabs [data-subtab]').forEach(b => b.addEventListener('click', () => { semanaSubTab = b.dataset.subtab; renderSemana(); }));
 document.getElementById('semanaPrev').addEventListener('click', () => { semanaAtualInicio = addDaysISO(semanaAtualInicio, -7); renderSemana(); });
 document.getElementById('semanaNext').addEventListener('click', () => { semanaAtualInicio = addDaysISO(semanaAtualInicio, 7); renderSemana(); });
 document.getElementById('semanaHojeBtn').addEventListener('click', () => { semanaAtualInicio = mondayOf(todayISO()); renderSemana(); });
@@ -108,12 +146,37 @@ document.getElementById('semanaHojeBtn').addEventListener('click', () => { seman
 /* ---------- fluxo guiado de domingo ---------- */
 const PERGUNTAS_REVISAO = [
   ['consegui','O que eu consegui fazer?'], ['pendente','O que ficou pendente?'], ['aprendi','O que eu aprendi?'],
-  ['deuCerto','O que deu certo?'], ['melhorar','O que preciso melhorar?'], ['levarProxima','O que preciso levar para a próxima semana?']
+  ['deuCerto','O que deu certo?'], ['melhorar','O que quero mudar na próxima semana?'], ['levarProxima','O que preciso levar para a próxima semana?'],
+  ['manter','O que quero manter na próxima semana?']
 ];
 const PERGUNTAS_PLANEJAMENTO = [
   ['objetivos','Quais são meus principais objetivos?'], ['estudar','O que preciso estudar?'], ['tarefas','Quais tarefas preciso fazer?'],
   ['compromissos','Quais compromissos já tenho?'], ['naoEsquecer','O que não posso esquecer?'], ['melhorar','O que quero melhorar nesta semana?']
 ];
+function resumoAutomaticoSemanaHTML(mondayIso){
+  const dias = diasDaSemana(mondayIso), ini = dias[0], fim = dias[6];
+  const semana = getSemana(mondayIso);
+  const cmp = planejadoRealizadoSemana(mondayIso);
+  const motivos = motivosNoPeriodo(ini, fim);
+  const registros = DB.getAll('registros').filter(r => r.data>=ini && r.data<=fim);
+  const importantes = registros.filter(r => ['Conquista','Momento importante','Acontecimento'].includes(r.tipo)).slice(0,6);
+  const aprendizados = registros.filter(r => r.tipo === 'Aprendizado').slice(0,6);
+  const objetivosPendentes = (semana?.objetivos||[]).filter(o=>o.status!=='Concluído');
+  const bloco = (label, html) => `<div class="detail-block"><div class="detail-label">${label}</div><div class="detail-value">${html}</div></div>`;
+  return `<div class="panel" style="margin-bottom:16px">
+    <div class="panel-head"><h2>📊 O que os dados mostram</h2></div>
+    <div class="stat-grid">
+      <div class="stat-card c-primary"><div class="stat-num">${cmp.estudos.realizado}/${cmp.estudos.planejado}</div><div class="stat-label">Estudos</div></div>
+      <div class="stat-card c-ok"><div class="stat-num">${cmp.tarefas.realizado}/${cmp.tarefas.planejado}</div><div class="stat-label">Tarefas</div></div>
+      <div class="stat-card c-warn"><div class="stat-num">${cmp.rotinas.realizado}/${cmp.rotinas.planejado}</div><div class="stat-label">Rotinas</div></div>
+      <div class="stat-card c-primary"><div class="stat-num">${cmp.compromissos.realizado}/${cmp.compromissos.planejado}</div><div class="stat-label">Compromissos</div></div>
+    </div>
+    ${objetivosPendentes.length ? bloco('Ficou pendente', objetivosPendentes.map(o=>escapeHTML(o.titulo)).join(', ')) : ''}
+    ${motivos.length ? bloco('Por que algumas coisas não aconteceram', motivos.map(m=>`${escapeHTML(m.motivo)}${m.motivoLivre?': '+escapeHTML(m.motivoLivre):''}`).join('<br>')) : ''}
+    ${importantes.length ? bloco('O que aconteceu de importante (do Diário)', importantes.map(r=>escapeHTML(r.titulo)).join('<br>')) : ''}
+    ${aprendizados.length ? bloco('O que você marcou como Aprendizado', aprendizados.map(r=>escapeHTML(r.titulo)).join('<br>')) : ''}
+  </div>`;
+}
 function abrirFluxoDomingo(){
   const semanaAtual = getOrCreateSemana(semanaAtualInicio);
   const proximaId = addDaysISO(semanaAtualInicio, 7);
@@ -122,6 +185,7 @@ function abrirFluxoDomingo(){
     <div class="diario-tabs" id="domingoTabs"><button class="diario-tab is-active" data-step="1">1. Revisão</button><button class="diario-tab" data-step="2">2. Planejamento</button></div>
     <form id="formDomingo">
       <div data-step-body="1"><p class="muted" style="margin-bottom:10px">Sobre a ${tituloSemana(semanaAtualInicio).toLowerCase()}, que está terminando:</p>
+        ${resumoAutomaticoSemanaHTML(semanaAtualInicio)}
         <div class="form-grid">${PERGUNTAS_REVISAO.map(([k,label]) => `<div class="field full"><label for="dom_rev_${k}">${label}</label><textarea id="dom_rev_${k}">${escapeHTML(semanaAtual.revisao?.[k]||'')}</textarea></div>`).join('')}</div>
       </div>
       <div data-step-body="2" hidden><p class="muted" style="margin-bottom:10px">Planejando a ${tituloSemana(proximaId).toLowerCase()}:</p>

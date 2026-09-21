@@ -11,6 +11,7 @@ const STORAGE_KEYS = {
   tarefas: 'md_tarefas',
   rotinas: 'md_rotinas',
   rotinaLog: 'md_rotina_log',
+  motivos: 'md_motivos',
   eventos: 'md_eventos',
   metas: 'md_metas',
   reflexoes: 'md_reflexoes',

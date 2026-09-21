@@ -192,16 +192,25 @@ function renderEstudos(){
     </div>`).join('') : '<p class="muted">Nenhuma revisão pendente.</p>';
   document.querySelectorAll('#listaRevisoes [data-mat]').forEach(el => el.addEventListener('click', () => abrirDetalheMateria(el.dataset.mat)));
 
-  document.getElementById('listaSessoes').innerHTML = sessoes.slice(0,15).map(s => `<article class="activity-card" data-id="${s.id}">
+  document.getElementById('listaSessoes').innerHTML = sessoes.slice(0,15).map(s => {
+    const perdida = s.status==='Planejada' && s.data < todayISO();
+    const motivo = perdida ? motivoDoItem('estudo', s.id, s.data) : null;
+    return `<article class="activity-card ${perdida?'is-late':''}" data-id="${s.id}">
     <div class="activity-main"><div class="activity-title-row"><span class="activity-icon">${s.status==='Planejada'?'🗓️':'📚'}</span><div><div class="activity-title">${escapeHTML(nomeMateria(s.materiaId))} — ${escapeHTML(s.assunto)}</div>
       <div class="activity-meta"><span class="badge-pill badge-${s.status==='Planejada'?'warn':'ok'}">${s.status}</span>${s.duracaoMin?`<span>⏱ ${s.duracaoMin} min</span>`:''}${s.exerciciosTotal?`<span>✍️ ${s.exerciciosAcertos||0}/${s.exerciciosTotal}</span>`:''}</div></div></div>
+      ${motivo?`<div class="activity-description"><em>❓ ${escapeHTML(motivo.motivo)}${motivo.motivoLivre?': '+escapeHTML(motivo.motivoLivre):''}</em></div>`:''}
     </div>
     <div class="activity-side"><div class="muted" style="font-family:var(--font-mono);font-size:12px">${formatDateBR(s.data)}</div></div>
-    <div class="activity-actions">${s.status==='Planejada'?'<button class="btn btn-sm btn-primary" data-act="concluir">✓ Concluir</button>':''}<button class="btn btn-sm" data-act="editar">Editar</button><button class="btn btn-sm btn-danger" data-act="excluir">Excluir</button></div>
-  </article>`).join('') || '<p class="muted">Nenhuma sessão registrada ainda.</p>';
+    <div class="activity-actions">${s.status==='Planejada'?'<button class="btn btn-sm btn-primary" data-act="concluir">✓ Concluir</button>':''}${perdida?`<button class="btn btn-sm" data-act="motivo">❓ ${motivo?'Editar motivo':'Motivo'}</button>`:''}<button class="btn btn-sm" data-act="editar">Editar</button><button class="btn btn-sm btn-danger" data-act="excluir">Excluir</button></div>
+  </article>`;
+  }).join('') || '<p class="muted">Nenhuma sessão registrada ainda.</p>';
   document.querySelectorAll('#listaSessoes .activity-card').forEach(card => {
     const id = card.dataset.id;
     card.querySelector('[data-act="concluir"]')?.addEventListener('click', () => concluirSessaoEstudo(id));
+    card.querySelector('[data-act="motivo"]')?.addEventListener('click', () => {
+      const s = DB.getById('sessoes', id);
+      abrirFormMotivo('estudo', id, s.data, `${nomeMateria(s.materiaId)} — ${s.assunto}`, () => renderEstudos());
+    });
     card.querySelector('[data-act="editar"]').onclick = () => openFormSessaoEstudo(id);
     card.querySelector('[data-act="excluir"]').onclick = () => confirmAction('Excluir esta sessão?', () => { DB.remove('sessoes', id); showToast('Sessão excluída.'); renderEstudos(); });
   });

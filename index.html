@@ -101,6 +101,10 @@
             <button class="btn btn-primary" id="btnFluxoDomingo">🔄 Revisão + planejamento</button>
           </div>
         </div>
+        <div class="diario-tabs" id="semanaSubTabs">
+          <button type="button" class="diario-tab is-active" data-subtab="planejamento">📋 Planejamento</button>
+          <button type="button" class="diario-tab" data-subtab="comparativo">⚖️ Planejado × Realizado</button>
+        </div>
         <div id="semanaConteudo"></div>
       </section>
 
@@ -110,10 +114,15 @@
           <div><h1>Meu Diário</h1><p>Registre acontecimentos, reflexões, ideias e aprendizados do seu dia a dia.</p></div>
           <button class="btn btn-primary" data-action="novo-registro-diario">＋ Novo registro</button>
         </div>
+        <div class="diario-tabs" id="diarioModoTabs">
+          <button type="button" class="diario-tab is-active" data-modo="lista">📋 Lista</button>
+          <button type="button" class="diario-tab" data-modo="timeline">🕐 Linha do tempo</button>
+        </div>
         <div class="toolbar">
           <div class="filters" id="filtrosDiario">
             <input type="search" class="input" data-filter="busca" placeholder="Pesquisar no diário...">
-            <select class="input" data-filter="tipo"><option value="">Tipo: todos</option><option>Acontecimento</option><option>Reflexão</option><option>Ideia</option><option>Aprendizado</option><option>Conquista</option><option>Problema</option><option>Observação</option></select>
+            <select class="input" data-filter="tipo"><option value="">Tipo: todos</option></select>
+            <select class="input" data-filter="categoria"><option value="">Categoria: todas</option></select>
             <input type="date" class="input" data-filter="data" title="Data">
           </div>
         </div>
@@ -217,7 +226,7 @@
       <!-- MEMÓRIA -->
       <section class="view" id="view-memoria" data-view="memoria" hidden>
         <div class="toolbar">
-          <input type="search" class="input input-wide" id="buscaMemoriaInput" placeholder="Pesquise em tudo: diário, estudos, tarefas, metas, reflexões, agenda...">
+          <input type="search" class="input input-wide" id="buscaMemoriaInput" placeholder="Pesquise em tudo: diário, estudos, tarefas, metas, reflexões, agenda, rotinas e revisões...">
         </div>
         <div id="resultadosMemoria"></div>
       </section>

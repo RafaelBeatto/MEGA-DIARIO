@@ -124,6 +124,60 @@ function minutosEstudoPorDia(inicioIso, fimIso){
 }
 
 /* ---------------------------------------------------------
+   MOTIVO / "POR QUÊ?" — vincula um motivo de não realização a um
+   item específico (tarefa, estudo, rotina ou objetivo da semana),
+   por ID + data da ocorrência. Nunca um texto solto.
+   --------------------------------------------------------- */
+const MOTIVOS_OPCOES = ['Falta de tempo','Cansaço','Esqueci','Imprevisto','Outra atividade','Dificuldade','Falta de vontade','Problema externo','Outro'];
+function motivoId(entidade, refId, data){ return `${entidade}_${refId}_${data}`; }
+function motivoDoItem(entidade, refId, data){ return DB.getById('motivos', motivoId(entidade, refId, data)); }
+function registrarMotivo(entidade, refId, data, motivo, motivoLivre){
+  const id = motivoId(entidade, refId, data);
+  const dados = { id, entidade, refId, data, motivo, motivoLivre: motivoLivre||'', criadoEm: Date.now() };
+  return DB.getById('motivos', id) ? DB.update('motivos', id, dados) : DB.insert('motivos', dados);
+}
+function removerMotivo(entidade, refId, data){ DB.remove('motivos', motivoId(entidade, refId, data)); }
+function motivosNoPeriodo(inicioIso, fimIso){
+  return DB.getAll('motivos').filter(m => m.data >= inicioIso && m.data <= fimIso);
+}
+function abrirFormMotivo(entidade, refId, data, tituloItem, onSalvo){
+  const atual = motivoDoItem(entidade, refId, data);
+  openModal(`❓ Por que não aconteceu?`, `<form id="formMotivo"><div class="form-grid">
+    <div class="field full"><div class="detail-label">Item</div><div class="detail-value">${escapeHTML(tituloItem)}</div></div>
+    <div class="field full"><label for="mv_motivo">Motivo</label><select class="input" id="mv_motivo">${MOTIVOS_OPCOES.map(m=>`<option ${(atual?.motivo||MOTIVOS_OPCOES[0])===m?'selected':''}>${m}</option>`).join('')}</select></div>
+    <div class="field full"><label for="mv_livre">Quer detalhar? (opcional)</label><textarea id="mv_livre">${escapeHTML(atual?.motivoLivre||'')}</textarea></div>
+  </div><div class="modal-actions"><button type="button" class="btn btn-ghost" id="mvCancelar">Cancelar</button><button type="submit" class="btn btn-primary">Salvar motivo</button></div></form>`);
+  document.getElementById('mvCancelar').onclick = closeModal;
+  onSubmitGuarded(document.getElementById('formMotivo'), () => {
+    registrarMotivo(entidade, refId, data, document.getElementById('mv_motivo').value, document.getElementById('mv_livre').value.trim());
+    showToast('✓ Motivo registrado.');
+    closeModal();
+    onSalvo?.();
+  });
+}
+
+/* ---------------------------------------------------------
+   PLANEJADO × REALIZADO — compara o que estava previsto numa semana
+   com o que de fato aconteceu, reutilizando os mesmos dados (não é
+   uma nota de desempenho, só um retrato da rotina real).
+   --------------------------------------------------------- */
+function planejadoRealizadoSemana(mondayIso){
+  const dias = diasDaSemana(mondayIso);
+  const ini = dias[0], fim = dias[6];
+  const sessoesSemana = DB.getAll('sessoes').filter(s => mondayOf(s.data) === mondayIso);
+  const tarefasSemana = DB.getAll('tarefas').map(t=>({...t,_data:prazoTarefa(t).data})).filter(t => t._data && mondayOf(t._data) === mondayIso);
+  const rotinasPrevistas = ocorrenciasRotinas(ini, fim);
+  const rotinasFeitas = rotinasRealizadasNoPeriodo(ini, fim);
+  const eventosSemana = DB.getAll('eventos').filter(e => e.data >= ini && e.data <= fim);
+  return {
+    estudos: { planejado: sessoesSemana.length, realizado: sessoesSemana.filter(s=>s.status==='Realizada').length },
+    tarefas: { planejado: tarefasSemana.length, realizado: tarefasSemana.filter(t=>t.status==='Concluída').length },
+    rotinas: { planejado: rotinasPrevistas.length, realizado: rotinasFeitas.length },
+    compromissos: { planejado: eventosSemana.length, realizado: eventosSemana.filter(e=>e.concluido).length }
+  };
+}
+
+/* ---------------------------------------------------------
    NOTIFICAÇÕES — sempre derivadas de dados reais
    --------------------------------------------------------- */
 function metasSemProgressoRecente(diasLimite){

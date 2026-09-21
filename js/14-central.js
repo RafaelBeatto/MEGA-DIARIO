@@ -52,7 +52,7 @@ function destacarTermo(texto, termo){
   return escapado.replace(new RegExp(`(${termoEsc})`, 'ig'), '<mark>$1</mark>');
 }
 function abrirBuscaGlobal(){
-  openModal('🔍 Busca global', `<div class="field full"><input class="input input-wide" id="buscaGlobalInput" placeholder="Pesquisar em diário, estudos, tarefas, metas, reflexões e agenda..." autocomplete="off"></div><div id="buscaGlobalResultados" style="margin-top:14px"></div>`);
+  openModal('🔍 Busca global', `<div class="field full"><input class="input input-wide" id="buscaGlobalInput" placeholder="Pesquisar em diário, estudos, tarefas, metas, reflexões, agenda, rotinas e revisões..." autocomplete="off"></div><div id="buscaGlobalResultados" style="margin-top:14px"></div>`);
   const input = document.getElementById('buscaGlobalInput');
   input.focus();
   function render(){
@@ -66,7 +66,9 @@ function abrirBuscaGlobal(){
       {titulo:'✅ Tarefas', itens:r.tarefas, render:x=>({titulo:x.titulo, sub:x.status, data:x.prazo, go:()=>{closeModal();openFormTarefa(x.id);}})},
       {titulo:'🎯 Metas', itens:r.metas, render:x=>({titulo:x.titulo, sub:x.status, data:x.prazo, go:()=>{closeModal();abrirDetalheMeta(x.id);}})},
       {titulo:'💭 Reflexões', itens:r.reflexoes, render:x=>({titulo:'Reflexão', sub:'', data:x.data, go:()=>{closeModal();abrirDetalheReflexao(x.id);}})},
-      {titulo:'🗓️ Agenda', itens:r.eventos, render:x=>({titulo:x.titulo, sub:x.tipo, data:x.data, go:()=>{closeModal();abrirDetalheEvento(x.id);}})}
+      {titulo:'🗓️ Agenda', itens:r.eventos, render:x=>({titulo:x.titulo, sub:x.tipo, data:x.data, go:()=>{closeModal();abrirDetalheEvento(x.id);}})},
+      {titulo:'🔄 Rotinas', itens:r.rotinas, render:x=>({titulo:x.titulo, sub:x.categoria, data:null, go:()=>{closeModal();openFormRotina(x.id);}})},
+      {titulo:'📆 Revisões semanais', itens:r.semanas, render:x=>({titulo:tituloSemana(x.id), sub:'', data:x.id, go:()=>{closeModal(); semanaAtualInicio = x.id; goToView('semana');}})}
     ].filter(b => b.itens.length);
     if (!blocos.length){ container.innerHTML = `<p class="muted">Nenhum resultado para "${escapeHTML(termo)}".</p>`; return; }
     container.innerHTML = blocos.map((b,bi) => `<div class="search-group"><div class="search-group-head">${b.titulo} <span class="muted">${b.itens.length}</span></div>
