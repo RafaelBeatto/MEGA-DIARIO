@@ -202,7 +202,9 @@ function resumoAutomaticoSemanaHTML(mondayIso){
   const cmp = planejadoRealizadoSemana(mondayIso);
   const motivos = motivosNoPeriodo(ini, fim);
   const registros = DB.getAll('registros').filter(r => r.data>=ini && r.data<=fim);
-  const importantes = registros.filter(r => ['Conquista','Momento importante','Acontecimento'].includes(r.tipo)).slice(0,6);
+  const importantes = registros.filter(r => ['Momento importante','Acontecimento'].includes(r.tipo)).slice(0,6);
+  const conquistas = registros.filter(r => r.tipo === 'Conquista').slice(0,6);
+  const problemas = registros.filter(r => r.tipo === 'Problema').slice(0,6);
   const aprendizados = registros.filter(r => r.tipo === 'Aprendizado').slice(0,6);
   const reflexoesSemana = DB.getAll('reflexoes').filter(r => r.data>=ini && r.data<=fim);
   const objetivosPendentes = (semana?.objetivos||[]).filter(o=>o.status!=='Concluído');
@@ -218,6 +220,8 @@ function resumoAutomaticoSemanaHTML(mondayIso){
     ${objetivosPendentes.length ? bloco('Ficou pendente', objetivosPendentes.map(o=>escapeHTML(o.titulo)).join(', ')) : ''}
     ${motivos.length ? bloco('Por que algumas coisas não aconteceram', motivos.map(m=>`${escapeHTML(m.motivo)}${m.motivoLivre?': '+escapeHTML(m.motivoLivre):''}`).join('<br>')) : ''}
     ${importantes.length ? bloco('O que aconteceu de importante (do Diário)', importantes.map(r=>escapeHTML(r.titulo)).join('<br>')) : ''}
+    ${conquistas.length ? bloco('🏆 Conquistas', conquistas.map(r=>escapeHTML(r.titulo)).join('<br>')) : ''}
+    ${problemas.length ? bloco('⚠️ Problemas', problemas.map(r=>escapeHTML(r.titulo)).join('<br>')) : ''}
     ${aprendizados.length ? bloco('O que você marcou como Aprendizado', aprendizados.map(r=>escapeHTML(r.titulo)).join('<br>')) : ''}
     ${reflexoesSemana.length ? bloco('Reflexões da semana', reflexoesSemana.map(r => {
       const resumo = r.textoLivre || Object.values(r.respostas||{})[0] || 'Sem conteúdo escrito.';

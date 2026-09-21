@@ -5,6 +5,9 @@ let evolucaoTab = 'retrospectiva';
 let retroModo = 'semana';
 let retroData = new Date();
 let historicoData = new Date();
+let timelineModo = '30dias';
+let timelinePersonalizadoIni = addDaysISO(todayISO(), -30);
+let timelinePersonalizadoFim = todayISO();
 
 function retroIntervalo(){
   if (retroModo === 'semana'){ const seg = mondayOf(isoFromDate(retroData)); return [seg, addDaysISO(seg,6)]; }
@@ -117,16 +120,37 @@ function timelineItems(inicioIso, fimIso){
   const reflexoes = DB.getAll('reflexoes').filter(r => r.data>=inicioIso && r.data<=fimIso).map(r => ({data:r.data, horario:'23:59', titulo:'🧠 Reflexão do dia', tipo:'Reflexão'}));
   return [...agenda, ...registros, ...reflexoes].sort((a,b) => `${b.data}T${b.horario||'00:00'}`.localeCompare(`${a.data}T${a.horario||'00:00'}`));
 }
+function timelineIntervalo(){
+  const hoje = todayISO();
+  if (timelineModo === 'hoje') return [hoje, hoje];
+  if (timelineModo === 'semana'){ const seg = mondayOf(hoje); return [seg, addDaysISO(seg,6)]; }
+  if (timelineModo === 'mes'){ const d = new Date(); return [isoFromDate(new Date(d.getFullYear(),d.getMonth(),1)), isoFromDate(new Date(d.getFullYear(),d.getMonth()+1,0))]; }
+  if (timelineModo === 'personalizado') return [timelinePersonalizadoIni, timelinePersonalizadoFim];
+  return [addDaysISO(hoje, -30), hoje]; // '30dias' — comportamento original, mantido como opção
+}
 function renderTimeline(){
-  const fim = todayISO(); const inicio = addDaysISO(fim, -30);
+  const [inicio, fim] = timelineIntervalo();
   const itens = timelineItems(inicio, fim);
   const porDia = {};
   itens.forEach(i => { (porDia[i.data] = porDia[i.data] || []).push(i); });
   const dias = Object.keys(porDia).sort((a,b)=>b.localeCompare(a));
-  document.getElementById('evolucaoConteudo').innerHTML = `<p class="muted" style="margin-bottom:12px">Últimos 30 dias.</p>` + (dias.length ? dias.map(dia => `
+  const toolbarHTML = `<div class="toolbar"><div class="filters">
+    <select class="input" id="timelineModoSelect">
+      <option value="hoje" ${timelineModo==='hoje'?'selected':''}>Hoje</option>
+      <option value="semana" ${timelineModo==='semana'?'selected':''}>Esta semana</option>
+      <option value="mes" ${timelineModo==='mes'?'selected':''}>Este mês</option>
+      <option value="30dias" ${timelineModo==='30dias'?'selected':''}>Últimos 30 dias</option>
+      <option value="personalizado" ${timelineModo==='personalizado'?'selected':''}>Período personalizado</option>
+    </select>
+    ${timelineModo==='personalizado' ? `<input type="date" class="input" id="timelineIniInput" value="${timelinePersonalizadoIni}"> <input type="date" class="input" id="timelineFimInput" value="${timelinePersonalizadoFim}">` : ''}
+  </div></div>`;
+  document.getElementById('evolucaoConteudo').innerHTML = toolbarHTML + (dias.length ? dias.map(dia => `
     <div class="activity-day">${formatDateBR(dia)}</div>
     ${porDia[dia].map(i => `<div class="activity-row"><span class="activity-time">${i.horario||'—'}</span><span>${escapeHTML(i.titulo)} <span class="muted" style="font-size:11px">(${escapeHTML(i.tipo)})</span></span></div>`).join('')}
-  `).join('') : '<p class="muted">Nada registrado nos últimos 30 dias.</p>');
+  `).join('') : '<p class="muted">Nada registrado neste período.</p>');
+  document.getElementById('timelineModoSelect').addEventListener('change', e => { timelineModo = e.target.value; renderTimeline(); });
+  document.getElementById('timelineIniInput')?.addEventListener('change', e => { timelinePersonalizadoIni = e.target.value; renderTimeline(); });
+  document.getElementById('timelineFimInput')?.addEventListener('change', e => { timelinePersonalizadoFim = e.target.value; renderTimeline(); });
 }
 
 function abrirDetalheDiaHistorico(iso){

@@ -26,14 +26,55 @@ function saudacaoPorHora(){
   return 'Boa noite';
 }
 
+function mensagemContextualHoje(){
+  const hoje = todayISO();
+  const tarefasPendentes = DB.getAll('tarefas').filter(t => prazoTarefa(t).data === hoje && !['Concluída','Cancelada'].includes(t.status)).length;
+  const compromissos = DB.getAll('eventos').filter(e => e.data === hoje && !e.concluido).length;
+  const partes = [];
+  if (tarefasPendentes) partes.push(`${tarefasPendentes} tarefa${tarefasPendentes===1?'':'s'}`);
+  if (compromissos) partes.push(`${compromissos} compromisso${compromissos===1?'':'s'}`);
+  if (!partes.length) return null;
+  return `Você tem ${partes.join(' e ')} hoje.`;
+}
+
 function renderMeuDiaSaudacao(){
   const seq = calcularSequencia();
   const dataFmt = new Date().toLocaleDateString('pt-BR',{weekday:'long',day:'numeric',month:'long'}).replace(/^./,c=>c.toUpperCase());
+  const contexto = mensagemContextualHoje();
   document.getElementById('meuDiaSaudacao').innerHTML = `
     <div class="greeting-row">
-      <div><h1 class="greeting-title">${saudacaoPorHora()} 👋</h1><p class="muted greeting-date">${dataFmt}</p></div>
+      <div><h1 class="greeting-title">${saudacaoPorHora()} 👋</h1><p class="muted greeting-date">${dataFmt}</p>${contexto?`<p class="muted greeting-context">${escapeHTML(contexto)}</p>`:''}</div>
       ${seq.atual > 0 ? `<div class="streak-badge" title="Sequência atual de dias ativos"><span class="streak-fire">🔥</span><div><strong>${seq.atual}</strong><span>dia${seq.atual===1?'':'s'}</span></div></div>` : ''}
     </div>`;
+}
+
+function proximoEventoHoje(){
+  const hoje = todayISO();
+  const agora = new Date();
+  const horaAtual = `${String(agora.getHours()).padStart(2,'0')}:${String(agora.getMinutes()).padStart(2,'0')}`;
+  const itens = itemsDoDia(hoje).filter(i => i.horarioInicio && i.horarioInicio >= horaAtual && !i.concluido);
+  return itens.length ? itens[0] : null;
+}
+function formatarContagemRegressiva(horarioInicio){
+  const agora = new Date();
+  const [h,m] = horarioInicio.split(':').map(Number);
+  const alvo = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), h, m);
+  let diffMin = Math.max(0, Math.round((alvo - agora)/60000));
+  const horas = Math.floor(diffMin/60), min = diffMin%60;
+  if (horas > 0) return `Em ${horas}h ${min}min`;
+  if (min > 0) return `Em ${min}min`;
+  return 'Agora';
+}
+function renderMeuDiaProximoEvento(){
+  const box = document.getElementById('meuDiaProximo');
+  const prox = proximoEventoHoje();
+  if (!prox){ box.innerHTML = ''; return; }
+  box.innerHTML = `<div class="panel foco-panel proximo-panel" data-proximo="${prox.id}">
+    <div class="detail-label">Próximo</div>
+    <div class="proximo-row"><span class="proximo-hora">${escapeHTML(prox.horarioInicio)}</span><span class="proximo-titulo">${escapeHTML(prox.titulo)}</span></div>
+    <div class="muted proximo-contagem">${formatarContagemRegressiva(prox.horarioInicio)}</div>
+  </div>`;
+  document.querySelector('[data-proximo]').addEventListener('click', () => abrirItemAgenda(prox));
 }
 
 function candidatoFocoDoDia(){
@@ -85,6 +126,7 @@ function renderMeuDiaAtencao(){
 function renderMeuDia(){
   const hoje = todayISO();
   renderMeuDiaSaudacao();
+  renderMeuDiaProximoEvento();
   renderMeuDiaFoco();
   renderMeuDiaQuickRow();
   renderMeuDiaAtencao();
@@ -165,4 +207,25 @@ function renderMeuDia(){
     ['📝', 'Registros', registrosHoje.length, 'c-primary'],
     ['🗓️', 'Compromissos', itensHoje.length, 'c-primary']
   ].map(([icon,label,num,cls]) => `<div class="stat-card ${cls}"><div class="stat-num">${icon} ${num}</div><div class="stat-label">${label}</div></div>`).join('');
+
+  const diaVazio = !itensHoje.length && !estudosHoje.length && !tarefasHoje.length && !rotinasHoje.length && !registrosHoje.length && !metasAtivas.length;
+  document.getElementById('meuDiaConteudoDoDia').hidden = diaVazio;
+  const vazioBox = document.getElementById('meuDiaVazio');
+  vazioBox.hidden = !diaVazio;
+  if (diaVazio){
+    vazioBox.innerHTML = `<div class="panel empty-day-panel">
+      <p class="empty-day-title">Seu dia ainda está livre.</p>
+      <p class="muted">Você pode:</p>
+      <div class="empty-day-actions">
+        <button type="button" class="btn" data-vazio-acao="registro">＋ Registrar um acontecimento</button>
+        <button type="button" class="btn" data-vazio-acao="tarefa">＋ Criar uma tarefa</button>
+        <button type="button" class="btn" data-vazio-acao="estudo">＋ Planejar um estudo</button>
+        <button type="button" class="btn" data-vazio-acao="compromisso">＋ Adicionar um compromisso</button>
+      </div>
+    </div>`;
+    vazioBox.querySelector('[data-vazio-acao="registro"]').onclick = () => openFormRegistroDiario();
+    vazioBox.querySelector('[data-vazio-acao="tarefa"]').onclick = () => openFormTarefa();
+    vazioBox.querySelector('[data-vazio-acao="estudo"]').onclick = () => openFormSessaoEstudo();
+    vazioBox.querySelector('[data-vazio-acao="compromisso"]').onclick = () => openFormEvento();
+  }
 }

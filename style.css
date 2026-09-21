@@ -312,6 +312,7 @@ textarea{
 .greeting-row{ display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }
 .greeting-title{ margin:0; font-size:24px; }
 .greeting-date{ margin:2px 0 0; text-transform:capitalize; }
+.greeting-context{ margin:4px 0 0; font-size:12.5px; }
 .streak-badge{ display:flex; align-items:center; gap:8px; background:var(--warn-soft); border:1px solid var(--warn); border-radius: var(--radius); padding:8px 14px; }
 .streak-fire{ font-size:22px; }
 .streak-badge div{ display:flex; flex-direction:column; line-height:1.1; }
@@ -322,6 +323,14 @@ textarea{
 .foco-title{ font-size:16px; font-weight:700; margin-top:4px; }
 .progress-bar{ background: var(--surface-2); border-radius:6px; overflow:hidden; height:8px; }
 .progress-bar-fill{ height:100%; background: var(--primary); border-radius:6px; transition:width .25s ease; }
+.proximo-panel{ border-left-color: var(--warn); }
+.proximo-row{ display:flex; align-items:baseline; gap:10px; margin-top:4px; }
+.proximo-hora{ font-family: var(--font-mono); font-weight:700; font-size:18px; color: var(--warn); }
+.proximo-titulo{ font-size:15px; font-weight:600; }
+.proximo-contagem{ font-size:12px; margin-top:3px; }
+.empty-day-panel{ text-align:center; padding:32px 20px; }
+.empty-day-title{ font-size:17px; font-weight:700; margin:0 0 4px; }
+.empty-day-actions{ display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-top:16px; }
 .dashboard-summary-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(130px,1fr)); gap:12px; margin-bottom:16px; }
 .dashboard-summary-grid .stat-num{ font-size:19px; }
 
