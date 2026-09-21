@@ -232,6 +232,21 @@ function openFormRotina(id){
     closeModal(); renderCurrentView();
   });
 }
+/* últimos dias em que a rotina deveria ter acontecido mas não foi
+   marcada como feita — para poder informar o motivo, sem obrigar
+   ninguém a justificar todo o histórico */
+function ocorrenciasPassadasPendentes(rotina, dias){
+  dias = dias || 7;
+  const hoje = todayISO();
+  const desde = rotina.criadoEm ? isoFromDate(new Date(rotina.criadoEm)) : hoje;
+  const pendentes = [];
+  for (let i=1; i<=dias; i++){
+    const iso = addDaysISO(hoje, -i);
+    if (iso < desde) break;
+    if (rotinaOcorreEm(rotina, iso) && !rotinaConcluidaEm(rotina.id, iso)) pendentes.push(iso);
+  }
+  return pendentes;
+}
 function renderRotinas(){
   const lista = DB.getAll('rotinas');
   const box = document.getElementById('listaRotinas');
@@ -244,10 +259,18 @@ function renderRotinas(){
   box.innerHTML = lista.map(r => {
     const ocorreHoje = rotinaOcorreEm(r, hoje) && r.ativo;
     const feita = rotinaConcluidaEm(r.id, hoje);
+    const pendentes = r.ativo ? ocorrenciasPassadasPendentes(r) : [];
     return `<div class="panel" data-id="${r.id}" style="margin-bottom:0;${r.ativo?'':'opacity:.55'}">
     <div class="panel-head"><h2>🔄 ${escapeHTML(r.titulo)}</h2></div>
     <div class="muted" style="font-size:12.5px;margin-bottom:10px">${freqLabel(r)}${r.horario?' · '+r.horario:''}${r.categoria?' · '+escapeHTML(r.categoria):''}</div>
     ${ocorreHoje ? `<label style="display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:10px"><input type="checkbox" data-act="hoje" ${feita?'checked':''}> Feita hoje</label>` : ''}
+    ${pendentes.length ? `<div class="detail-block"><div class="detail-label">Dias não realizados recentemente</div><div class="activity-list">${pendentes.map(iso => {
+      const mot = motivoDoItem('rotina', r.id, iso);
+      return `<div class="history-row" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+        <span>${formatDateBR(iso)}${mot?` — ❓ ${escapeHTML(mot.motivo)}${mot.motivoLivre?': '+escapeHTML(mot.motivoLivre):''}`:''}</span>
+        <span class="activity-actions" style="padding:0;border:0"><button type="button" class="btn btn-sm" data-motivo-rot="${iso}">❓ ${mot?'Editar':'Motivo'}</button><button type="button" class="btn btn-sm" data-feita-rot="${iso}">✓ Marquei</button></span>
+      </div>`;
+    }).join('')}</div></div>` : ''}
     <div class="activity-actions"><button class="btn btn-sm" data-act="toggle">${r.ativo?'Pausar':'Ativar'}</button><button class="btn btn-sm" data-act="editar">Editar</button><button class="btn btn-sm btn-danger" data-act="excluir">Excluir</button></div>
   </div>`;
   }).join('');
@@ -257,6 +280,11 @@ function renderRotinas(){
     card.querySelector('[data-act="editar"]').onclick = () => openFormRotina(id);
     card.querySelector('[data-act="excluir"]').onclick = () => confirmAction('Excluir esta rotina?', () => { DB.remove('rotinas', id); showToast('Rotina excluída.'); renderRotinas(); });
     card.querySelector('[data-act="hoje"]')?.addEventListener('change', () => { toggleRotinaConcluida(id, hoje); showToast('✓ Atualizado.'); renderRotinas(); });
+    card.querySelectorAll('[data-motivo-rot]').forEach(btn => btn.addEventListener('click', () => {
+      const r = DB.getById('rotinas', id);
+      abrirFormMotivo('rotina', id, btn.dataset.motivoRot, r.titulo, () => renderRotinas());
+    }));
+    card.querySelectorAll('[data-feita-rot]').forEach(btn => btn.addEventListener('click', () => { toggleRotinaConcluida(id, btn.dataset.feitaRot); showToast('✓ Atualizado.'); renderRotinas(); }));
   });
 }
 document.querySelector('[data-action="nova-rotina"]').addEventListener('click', () => openFormRotina());
