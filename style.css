@@ -301,11 +301,34 @@ textarea{
 
 .help-content{ font-size:13.5px; line-height:1.5; }
 
-/* ---------------- meu dia: hierarquia (principal > secundário > detalhes) ---------------- */
-.meudia-detalhes{ margin-top:6px; }
-.meudia-detalhes .panel{ padding:14px; }
-.meudia-detalhes .panel-head{ margin-bottom:8px; }
-.meudia-detalhes .panel-head h2{ font-size:13px; color: var(--ink-soft); font-weight:600; }
+/* ---------------- meu dia: agora (próximo + foco lado a lado) ---------------- */
+.now-row{ display:flex; gap:16px; flex-wrap:wrap; }
+.now-row > div{ flex:1; min-width:240px; }
+.now-row .foco-panel, .now-row .proximo-panel{ height:100%; margin-bottom:0; box-sizing:border-box; }
+
+/* ---------------- meu dia: linha do dia (agenda + diário, cronológico) ---------------- */
+.linha-do-dia{ display:flex; flex-direction:column; }
+.linha-dia-item{
+  display:grid; grid-template-columns: 46px 22px 1fr auto; gap:10px; align-items:center;
+  padding:10px 4px; border-bottom:1px solid var(--border); cursor:pointer; border-radius:5px;
+}
+.linha-dia-item:last-child{ border-bottom:0; }
+.linha-dia-item:hover{ background: var(--surface-2); }
+.linha-dia-hora{ font-family: var(--font-mono); font-size:11.5px; color: var(--muted); }
+.linha-dia-icone{ font-size:15px; text-align:center; }
+.linha-dia-texto{ font-size:13px; min-width:0; line-height:1.35; }
+.linha-dia-texto strong{ font-weight:600; }
+.linha-dia-item.is-done .linha-dia-texto strong{ text-decoration:line-through; color:var(--muted); }
+.linha-dia-acao{ display:flex; gap:4px; flex-shrink:0; }
+.linha-dia-acao .btn-sm{ padding:5px 9px; }
+
+/* ---------------- meu dia: metas em destaque (tira horizontal) ---------------- */
+.metas-strip{ display:flex; gap:12px; overflow-x:auto; padding-bottom:2px; }
+.meta-chip{ flex:0 0 auto; width:200px; background: var(--surface-2); border:1px solid var(--border); border-radius: var(--radius-sm); padding:12px 14px; cursor:pointer; }
+.meta-chip:hover{ border-color: var(--primary); }
+.meta-chip-title{ font-size:12.5px; font-weight:600; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.meta-chip .progress-bar{ height:6px; }
+.meta-chip-sub{ font-size:11px; color: var(--muted); margin-top:5px; }
 
 /* ---------------- dashboard V2 ---------------- */
 .dashboard-greeting{ margin-bottom:16px; }
@@ -430,4 +453,8 @@ mark{ background: var(--warn-soft); color: var(--warn); border-radius:3px; paddi
      alvo de toque mais confortável */
   .agenda-chip{ padding:9px 10px; font-size:11.5px; min-height:34px; box-sizing:border-box; }
   .week-mini-day-items{ gap:6px; }
+  /* meu dia: linha do dia com alvo de toque maior e colunas mais estreitas */
+  .linha-dia-item{ grid-template-columns: 40px 20px 1fr auto; padding:12px 4px; }
+  .linha-dia-acao .btn-sm{ min-height:34px; padding:6px 10px; }
+  .meta-chip{ width:170px; }
 }

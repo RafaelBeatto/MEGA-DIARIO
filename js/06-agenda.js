@@ -34,6 +34,7 @@ function abrirItemAgenda(item){
   else if (item._origem === 'tarefa') openFormTarefa(item._id);
   else if (item._origem === 'rotina') openFormRotina(item._id);
   else if (item._origem === 'meta') abrirDetalheMeta(item._id);
+  else if (item._origem === 'registro') abrirDetalheRegistroDiario(item._id);
 }
 
 function openFormEvento(id, presetData){

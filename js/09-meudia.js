@@ -123,6 +123,90 @@ function renderMeuDiaAtencao(){
   box.querySelectorAll('[data-notif]').forEach(el => el.addEventListener('click', () => notifs[Number(el.dataset.notif)].go?.()));
 }
 
+/* junta tudo que tem hora ou data de hoje — agenda (eventos, estudos,
+   tarefas, rotinas, prazos de meta) + registros do diário — numa
+   única lista cronológica. Não duplica nada: cada linha só guarda a
+   origem (_origem/_id) e delega a ação para as funções que cada
+   módulo já expõe. */
+function montarLinhaDoDia(hoje){
+  const itens = itemsDoDia(hoje);
+  const registros = DB.getAll('registros').filter(r => r.data === hoje).map(r => ({
+    _origem:'registro', _id:r.id, id:`LINHA-${r.id}`, titulo:r.titulo, tipo:r.tipo,
+    horarioInicio:r.hora||'', concluido:false, texto:r.texto
+  }));
+  return [...itens, ...registros].sort((a,b) => (a.horarioInicio||'99:99').localeCompare(b.horarioInicio||'99:99'));
+}
+function iconeLinhaDoDia(item){
+  if (item._origem === 'evento') return '🗓️';
+  if (item._origem === 'sessao') return '📚';
+  if (item._origem === 'tarefa') return '✅';
+  if (item._origem === 'rotina') return '🔄';
+  if (item._origem === 'meta') return '🎯';
+  if (item._origem === 'registro') return tipoRegistroIcon(item.tipo);
+  return '📌';
+}
+function acoesLinhaDoDia(item, hoje){
+  if (item._origem === 'sessao'){
+    const s = DB.getById('sessoes', item._id); if (!s) return '';
+    const concluir = s.status === 'Planejada' ? `<button type="button" class="btn btn-sm btn-primary" data-linha-concluir="sessao:${item._id}" title="Concluir">✓</button>` : '';
+    const aprendizado = s.oQueAprendi ? `<button type="button" class="btn btn-sm" data-linha-aprendizado="${item._id}" title="Registrar aprendizado no Diário">📖</button>` : '';
+    return concluir + aprendizado;
+  }
+  if (item._origem === 'tarefa'){
+    const t = DB.getById('tarefas', item._id); if (!t) return '';
+    return t.status !== 'Concluída' ? `<button type="button" class="btn btn-sm btn-primary" data-linha-concluir="tarefa:${item._id}" title="Concluir">✓</button>` : '';
+  }
+  if (item._origem === 'rotina'){
+    const feita = rotinaConcluidaEm(item._id, hoje);
+    return `<button type="button" class="btn btn-sm ${feita?'':'btn-primary'}" data-linha-rotina="${item._id}" title="${feita?'Desfazer':'Marcar como feita'}">${feita?'↩':'✓'}</button>`;
+  }
+  return '';
+}
+function renderMeuDiaLinha(hoje){
+  const box = document.getElementById('meuDiaLinha');
+  const linha = montarLinhaDoDia(hoje);
+  box.innerHTML = linha.length ? linha.map(item => `
+    <div class="linha-dia-item ${item.concluido?'is-done':''}" data-linha-item="${item._origem}:${item._id}">
+      <span class="linha-dia-hora">${item.horarioInicio||'—'}</span>
+      <span class="linha-dia-icone">${iconeLinhaDoDia(item)}</span>
+      <span class="linha-dia-texto"><strong>${escapeHTML(item.titulo)}</strong>${item._origem==='registro' && item.texto ? `<br><span class="muted">${escapeHTML(item.texto.slice(0,90))}</span>` : ''}</span>
+      <span class="linha-dia-acao">${acoesLinhaDoDia(item, hoje)}</span>
+    </div>`).join('') : '<p class="muted">Nada por aqui ainda hoje.</p>';
+  box.querySelectorAll('[data-linha-item]').forEach(el => el.addEventListener('click', (e) => {
+    if (e.target.closest('[data-linha-concluir],[data-linha-rotina],[data-linha-aprendizado]')) return;
+    const [origem, id] = el.dataset.linhaItem.split(':');
+    abrirItemAgenda({_origem:origem, _id:id});
+  }));
+  box.querySelectorAll('[data-linha-concluir]').forEach(btn => btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const [tipo, id] = btn.dataset.linhaConcluir.split(':');
+    if (tipo === 'tarefa') concluirTarefa(id); else concluirSessaoEstudo(id);
+  }));
+  box.querySelectorAll('[data-linha-rotina]').forEach(btn => btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleRotinaConcluida(btn.dataset.linhaRotina, hoje);
+    renderCurrentView();
+  }));
+  box.querySelectorAll('[data-linha-aprendizado]').forEach(btn => btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    criarRegistroDeAprendizado(btn.dataset.linhaAprendizado);
+  }));
+  return linha;
+}
+
+function renderMeuDiaMetasDestaque(){
+  const box = document.getElementById('meuDiaMetas');
+  const metasAtivas = DB.getAll('metas').filter(m => m.status !== 'Concluída').sort((a,b) => (a.prazo||'9999').localeCompare(b.prazo||'9999')).slice(0,6);
+  box.innerHTML = metasAtivas.length ? metasAtivas.map(m => { const p = progressoMeta(m); return `
+    <div class="meta-chip" data-id="${m.id}">
+      <div class="meta-chip-title">🎯 ${escapeHTML(m.titulo)}</div>
+      <div class="progress-bar"><div class="progress-bar-fill" style="width:${p}%"></div></div>
+      <div class="meta-chip-sub">${p}%${m.prazo?' · '+formatDateBR(m.prazo):''}</div>
+    </div>`; }).join('') : '<p class="muted">Você ainda não tem metas em andamento. Que tal criar a primeira?</p>';
+  box.querySelectorAll('.meta-chip').forEach(el => el.addEventListener('click', () => abrirDetalheMeta(el.dataset.id)));
+  return metasAtivas;
+}
+
 function renderMeuDia(){
   const hoje = todayISO();
   renderMeuDiaSaudacao();
@@ -131,71 +215,14 @@ function renderMeuDia(){
   renderMeuDiaQuickRow();
   renderMeuDiaAtencao();
 
-  const itensHoje = itemsDoDia(hoje);
-  const agendaBox = document.getElementById('meuDiaAgenda');
-  agendaBox.innerHTML = `<div class="spotlight-panel">
-    <div class="panel-head"><h2>🗓️ Hoje</h2><a href="#" class="link-btn" id="meuDiaVerAgenda">Ver agenda completa →</a></div>
-    <div class="spotlight-section"><div class="spotlight-items">${itensHoje.length ? itensHoje.map(i => `
-      <div class="spotlight-item" data-item="${i.id}"><div class="spotlight-icon">${i.horarioInicio?'⏰':'📌'}</div>
-        <div class="spotlight-content"><div class="spotlight-item-title">${i.horarioInicio?i.horarioInicio+' — ':''}${escapeHTML(i.titulo)}</div><div class="spotlight-item-sub">${escapeHTML(i.tipo)}${i.concluido?' · concluído':''}</div></div>
-      </div>`).join('') : '<p class="muted">Nada agendado para hoje.</p>'}</div></div>
-  </div>`;
-  document.getElementById('meuDiaVerAgenda').addEventListener('click', e => { e.preventDefault(); goToView('agenda'); });
-  agendaBindChips(agendaBox, itensHoje);
-  agendaBox.querySelectorAll('.spotlight-item').forEach(el => { const item = itensHoje.find(i=>i.id===el.dataset.item); if (item) el.addEventListener('click', () => abrirItemAgenda(item)); });
+  const linha = renderMeuDiaLinha(hoje);
+  const metasAtivas = renderMeuDiaMetasDestaque();
 
   const estudosHoje = DB.getAll('sessoes').filter(s => s.data === hoje);
-  document.getElementById('meuDiaEstudos').innerHTML = estudosHoje.length ? estudosHoje.map(s => `
-    <article class="activity-card" data-id="${s.id}"><div class="activity-main"><div class="activity-title">${escapeHTML(nomeMateria(s.materiaId))} — ${escapeHTML(s.assunto)}</div>
-      <div class="activity-meta"><span class="badge-pill badge-${s.status==='Planejada'?'warn':'ok'}">${s.status}</span></div></div>
-      <div class="activity-actions">${s.status==='Planejada'?'<button class="btn btn-sm btn-primary" data-act="concluir">✓ Concluir</button>':''}${s.oQueAprendi?`<button class="btn btn-sm" data-act="aprendizado">📖 ${s.aprendizadoRegistroId?'Ver no Diário':'Registrar no Diário'}</button>`:''}<button class="btn btn-sm" data-act="editar">Editar</button></div>
-    </article>`).join('') : '<p class="muted">Nenhum estudo planejado para hoje.</p>';
-  document.querySelectorAll('#meuDiaEstudos .activity-card').forEach(card => {
-    const id = card.dataset.id;
-    card.querySelector('[data-act="concluir"]')?.addEventListener('click', () => concluirSessaoEstudo(id));
-    card.querySelector('[data-act="aprendizado"]')?.addEventListener('click', () => criarRegistroDeAprendizado(id));
-    card.querySelector('[data-act="editar"]').onclick = () => openFormSessaoEstudo(id);
-  });
-
   const tarefasHoje = DB.getAll('tarefas').filter(t => prazoTarefa(t).data === hoje);
-  document.getElementById('meuDiaTarefas').innerHTML = tarefasHoje.length ? tarefasHoje.map(t => `
-    <article class="activity-card ${tarefaAtrasada(t)?'is-late':''}" data-id="${t.id}"><div class="activity-main"><div class="activity-title">${escapeHTML(t.titulo)}</div>
-      <div class="activity-meta">${badgeHTML(badgeStatusTarefa(t.status),t.status)} ${badgeHTML(badgePrioridade(t.prioridade),t.prioridade)}</div></div>
-      <div class="activity-actions">${t.status!=='Concluída'?'<button class="btn btn-sm btn-primary" data-act="concluir">✓ Concluir</button>':''}<button class="btn btn-sm" data-act="editar">Editar</button></div>
-    </article>`).join('') : '<p class="muted">Nenhuma tarefa para hoje.</p>';
-  document.querySelectorAll('#meuDiaTarefas .activity-card').forEach(card => {
-    const id = card.dataset.id;
-    card.querySelector('[data-act="concluir"]')?.addEventListener('click', () => concluirTarefa(id));
-    card.querySelector('[data-act="editar"]').onclick = () => openFormTarefa(id);
-  });
-
   const rotinasHoje = rotinasAtivasHoje();
-  document.getElementById('meuDiaRotinas').innerHTML = rotinasHoje.length ? rotinasHoje.map(r => { const feita = rotinaConcluidaEm(r.id, hoje); return `
-    <article class="activity-card" data-id="${r.id}"><div class="activity-main"><div class="activity-title">🔄 ${escapeHTML(r.titulo)}</div>
-      <div class="activity-meta">${badgeHTML(feita?'ok':'neutral', feita?'Feita hoje':'Pendente')}</div></div>
-      <div class="activity-actions"><button class="btn btn-sm ${feita?'':'btn-primary'}" data-act="toggle">${feita?'↩ Desfazer':'✓ Feita hoje'}</button></div>
-    </article>`; }).join('') : '<p class="muted">Nenhuma rotina prevista para hoje.</p>';
-  document.querySelectorAll('#meuDiaRotinas .activity-card').forEach(card => {
-    const id = card.dataset.id;
-    card.querySelector('[data-act="toggle"]').onclick = () => { toggleRotinaConcluida(id, hoje); renderCurrentView(); };
-  });
-
-  const metasAtivas = DB.getAll('metas').filter(m => m.status !== 'Concluída').sort((a,b) => (a.prazo||'9999').localeCompare(b.prazo||'9999')).slice(0,4);
-  document.getElementById('meuDiaMetas').innerHTML = metasAtivas.length ? metasAtivas.map(m => { const p = progressoMeta(m); return `
-    <article class="activity-card" data-id="${m.id}"><div class="activity-main"><div class="activity-title">🎯 ${escapeHTML(m.titulo)}</div>
-      <div class="progress-bar" style="margin-top:6px"><div class="progress-bar-fill" style="width:${p}%"></div></div>
-      <div class="muted" style="font-size:11.5px;margin-top:3px">${p}%${m.prazo?' · '+formatDateBR(m.prazo):''}</div></div>
-      <div class="activity-actions"><button class="btn btn-sm" data-act="ver">Abrir</button></div>
-    </article>`; }).join('') : '<p class="muted">Você ainda não tem metas em andamento. Que tal criar a primeira?</p>';
-  document.querySelectorAll('#meuDiaMetas .activity-card').forEach(card => card.querySelector('[data-act="ver"]').onclick = () => abrirDetalheMeta(card.dataset.id));
-
   const registrosHoje = DB.getAll('registros').filter(r => r.data === hoje);
-  document.getElementById('meuDiaRegistros').innerHTML = registrosHoje.length ? registrosHoje.map(r => `
-    <article class="activity-card" data-id="${r.id}"><div class="activity-main"><div class="activity-title">${tipoRegistroIcon(r.tipo)} ${escapeHTML(r.titulo)}</div>
-      <div class="activity-description">${escapeHTML((r.texto||'').slice(0,90))}</div></div>
-      <div class="activity-actions"><button class="btn btn-sm btn-primary" data-act="ver">Acessar</button></div>
-    </article>`).join('') : '<p class="muted">Nenhum registro hoje. Use os botões acima para registrar algo.</p>';
-  document.querySelectorAll('#meuDiaRegistros .activity-card').forEach(card => card.querySelector('[data-act="ver"]').onclick = () => abrirDetalheRegistroDiario(card.dataset.id));
+  const compromissosHoje = itemsDoDia(hoje).length;
 
   const tarefasConcluidas = tarefasHoje.filter(t => t.status==='Concluída').length;
   const minutosHoje = estudosHoje.filter(s=>s.status==='Realizada').reduce((t,s)=>t+(s.duracaoMin||0),0);
@@ -205,10 +232,10 @@ function renderMeuDia(){
     ['✅', 'Tarefas', `${tarefasConcluidas}/${tarefasHoje.length}`, 'c-ok'],
     ['🔄', 'Rotinas', `${rotinasFeitas}/${rotinasHoje.length}`, 'c-warn'],
     ['📝', 'Registros', registrosHoje.length, 'c-primary'],
-    ['🗓️', 'Compromissos', itensHoje.length, 'c-primary']
+    ['🗓️', 'Compromissos', compromissosHoje, 'c-primary']
   ].map(([icon,label,num,cls]) => `<div class="stat-card ${cls}"><div class="stat-num">${icon} ${num}</div><div class="stat-label">${label}</div></div>`).join('');
 
-  const diaVazio = !itensHoje.length && !estudosHoje.length && !tarefasHoje.length && !rotinasHoje.length && !registrosHoje.length && !metasAtivas.length;
+  const diaVazio = !linha.length && !metasAtivas.length;
   document.getElementById('meuDiaConteudoDoDia').hidden = diaVazio;
   const vazioBox = document.getElementById('meuDiaVazio');
   vazioBox.hidden = !diaVazio;
