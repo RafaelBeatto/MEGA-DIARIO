@@ -53,6 +53,10 @@
       </div>
       <div class="topbar-actions">
         <button class="btn btn-primary" id="btnNewGeneric">＋ Registrar</button>
+        <button class="icon-btn" id="btnBusca" aria-label="Busca global (Ctrl+K)" title="Busca global (Ctrl+K)">🔍</button>
+        <button class="icon-btn notif-btn" id="btnNotificacoes" aria-label="Notificações" aria-expanded="false" title="Notificações">
+          🔔<span class="notif-badge" id="notifBadge" aria-live="polite" hidden>0</span>
+        </button>
         <div class="clock" id="clockBox">
           <span id="clockTime">--:--</span>
           <span id="clockDate" class="muted">--/--/----</span>
@@ -69,18 +73,25 @@
 
       <!-- MEU DIA -->
       <section class="view" id="view-meudia" data-view="meudia">
-        <div class="section-intro">
-          <div><h1 id="meuDiaTitulo">Hoje</h1><p id="meuDiaSubtitulo" class="muted"></p></div>
+        <div class="dashboard-greeting" id="meuDiaSaudacao"></div>
+        <div class="now-row">
+          <div id="meuDiaProximo"></div>
+          <div id="meuDiaFoco"></div>
         </div>
         <div class="quick-register-row" id="quickRegisterRow"></div>
-        <div class="dashboard-spotlight" id="meuDiaAgenda"></div>
-        <div class="two-col">
-          <div class="panel"><div class="panel-head"><h2>📚 Estudos de hoje</h2></div><div id="meuDiaEstudos" class="activity-list"></div></div>
-          <div class="panel"><div class="panel-head"><h2>✅ Tarefas de hoje</h2></div><div id="meuDiaTarefas" class="activity-list"></div></div>
+        <div id="meuDiaAtencao"></div>
+        <div id="meuDiaVazio" hidden></div>
+        <div id="meuDiaConteudoDoDia">
+        <div class="detail-label" style="margin:6px 0 -2px">Hoje, em números</div>
+        <div class="dashboard-summary-grid" id="meuDiaResumo"></div>
+        <div class="panel">
+          <div class="panel-head"><h2>🕐 Sua linha do dia</h2></div>
+          <div id="meuDiaLinha" class="linha-do-dia"></div>
         </div>
-        <div class="two-col">
-          <div class="panel"><div class="panel-head"><h2>📝 Registros de hoje</h2></div><div id="meuDiaRegistros" class="activity-list"></div></div>
-          <div class="panel"><div class="panel-head"><h2>📊 Resumo do dia</h2></div><div id="meuDiaResumo" class="stat-grid"></div></div>
+        <div class="panel">
+          <div class="panel-head"><h2>🎯 Metas em destaque</h2></div>
+          <div id="meuDiaMetas" class="metas-strip"></div>
+        </div>
         </div>
       </section>
 
@@ -95,6 +106,10 @@
             <button class="btn btn-primary" id="btnFluxoDomingo">🔄 Revisão + planejamento</button>
           </div>
         </div>
+        <div class="diario-tabs" id="semanaSubTabs">
+          <button type="button" class="diario-tab is-active" data-subtab="planejamento">📋 Planejamento</button>
+          <button type="button" class="diario-tab" data-subtab="comparativo">⚖️ Planejado × Realizado</button>
+        </div>
         <div id="semanaConteudo"></div>
       </section>
 
@@ -104,10 +119,15 @@
           <div><h1>Meu Diário</h1><p>Registre acontecimentos, reflexões, ideias e aprendizados do seu dia a dia.</p></div>
           <button class="btn btn-primary" data-action="novo-registro-diario">＋ Novo registro</button>
         </div>
+        <div class="diario-tabs" id="diarioModoTabs">
+          <button type="button" class="diario-tab is-active" data-modo="lista">📋 Lista</button>
+          <button type="button" class="diario-tab" data-modo="timeline">🕐 Linha do tempo</button>
+        </div>
         <div class="toolbar">
           <div class="filters" id="filtrosDiario">
             <input type="search" class="input" data-filter="busca" placeholder="Pesquisar no diário...">
-            <select class="input" data-filter="tipo"><option value="">Tipo: todos</option><option>Acontecimento</option><option>Reflexão</option><option>Ideia</option><option>Aprendizado</option><option>Conquista</option><option>Problema</option><option>Observação</option></select>
+            <select class="input" data-filter="tipo"><option value="">Tipo: todos</option></select>
+            <select class="input" data-filter="categoria"><option value="">Categoria: todas</option></select>
             <input type="date" class="input" data-filter="data" title="Data">
           </div>
         </div>
@@ -159,7 +179,7 @@
         <div class="toolbar">
           <div class="filters" id="filtrosTarefas">
             <input type="search" class="input" data-filter="busca" placeholder="Pesquisar tarefas...">
-            <select class="input" data-filter="status"><option value="">Status: todos</option><option>Pendente</option><option>Em andamento</option><option>Concluída</option><option>Cancelada</option></select>
+            <select class="input" data-filter="status"><option value="">Status: todos</option><option>Pendente</option><option>Concluída</option><option>Cancelada</option></select>
             <select class="input" data-filter="prioridade"><option value="">Prioridade: todas</option><option>Baixa</option><option>Média</option><option>Alta</option><option>Urgente</option></select>
           </div>
         </div>
@@ -201,6 +221,7 @@
         <div class="section-intro"><div><h1>Evolução</h1><p>Retrospectivas, linha do tempo e histórico.</p></div></div>
         <div class="diario-tabs" id="evolucaoTabs">
           <button class="diario-tab is-active" data-evtab="retrospectiva">Retrospectiva</button>
+          <button class="diario-tab" data-evtab="sequencia">Sequência</button>
           <button class="diario-tab" data-evtab="timeline">Linha do tempo</button>
           <button class="diario-tab" data-evtab="historico">Histórico</button>
         </div>
@@ -210,7 +231,7 @@
       <!-- MEMÓRIA -->
       <section class="view" id="view-memoria" data-view="memoria" hidden>
         <div class="toolbar">
-          <input type="search" class="input input-wide" id="buscaMemoriaInput" placeholder="Pesquise em tudo: diário, estudos, tarefas, metas, reflexões, agenda...">
+          <input type="search" class="input input-wide" id="buscaMemoriaInput" placeholder="Pesquise em tudo: diário, estudos, tarefas, metas, reflexões, agenda, rotinas e revisões...">
         </div>
         <div id="resultadosMemoria"></div>
       </section>

@@ -48,6 +48,8 @@ function goToView(view, opts){
   document.getElementById('pageSubtitle').textContent = VIEW_META[view].sub;
   closeSidebarMobile();
   renderCurrentView(opts);
+  if (typeof refreshNotifBadge === 'function') refreshNotifBadge();
+  if (typeof atualizarBottomNavAtivo === 'function') atualizarBottomNavAtivo();
   window.scrollTo({ top: 0, behavior: 'instant' in window ? 'instant' : 'auto' });
 }
 

@@ -10,6 +10,8 @@ const STORAGE_KEYS = {
   sessoes: 'md_sessoes',
   tarefas: 'md_tarefas',
   rotinas: 'md_rotinas',
+  rotinaLog: 'md_rotina_log',
+  motivos: 'md_motivos',
   eventos: 'md_eventos',
   metas: 'md_metas',
   reflexoes: 'md_reflexoes',
@@ -129,6 +131,48 @@ function getFiltrosValores(containerId){
   if (!container) return valores;
   container.querySelectorAll('[data-filter]').forEach(el => { valores[el.dataset.filter] = (el.value || '').trim(); });
   return valores;
+}
+function clamp(n, min, max){ return Math.max(min, Math.min(max, n)); }
+
+/* id único para itens aninhados (etapas, assuntos, objetivos, etc.) —
+   evita colisão quando dois itens são criados no mesmo milissegundo */
+let _uidSeq = 0;
+function uid(prefix){
+  _uidSeq = (_uidSeq + 1) % 100000;
+  return `${prefix}-${Date.now()}-${_uidSeq}`;
+}
+
+/* ---------------------------------------------------------
+   PROTEÇÃO CONTRA ENVIO DUPLICADO
+   Envolve o listener de submit de um form: enquanto o handler roda,
+   ignora novos submits e desabilita o botão de confirmar.
+   --------------------------------------------------------- */
+function onSubmitGuarded(form, handler){
+  let emAndamento = false;
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (emAndamento) return;
+    emAndamento = true;
+    const btn = form.querySelector('button[type="submit"]');
+    const textoOriginal = btn ? btn.textContent : null;
+    if (btn){ btn.disabled = true; }
+    try{
+      await handler(e);
+    } finally {
+      emAndamento = false;
+      if (btn && document.body.contains(btn)){ btn.disabled = false; if (textoOriginal !== null) btn.textContent = textoOriginal; }
+    }
+  });
+}
+
+/* ---------------------------------------------------------
+   SELECT genérico para relacionar registros (meta, matéria...)
+   --------------------------------------------------------- */
+function selectRelacaoHTML({id, label, itens, valorAtual, vazio}){
+  return `<div class="field"><label for="${id}">${escapeHTML(label)}</label>
+    <select class="input" id="${id}"><option value="">${escapeHTML(vazio||'Nenhuma')}</option>
+    ${itens.map(it => `<option value="${it.id}" ${valorAtual===it.id?'selected':''}>${escapeHTML(it.nome)}</option>`).join('')}
+    </select></div>`;
 }
 
 /* semana: segunda a domingo */

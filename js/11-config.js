@@ -11,28 +11,35 @@ function exportarBackupCompleto(){
     const url = URL.createObjectURL(blob), a = document.createElement('a');
     a.href = url; a.download = `backup-mega-diario-${todayISO()}.json`;
     document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    const cfg = DB.getConfig(); cfg.ultimoBackup = Date.now(); DB.saveConfig(cfg);
     showToast('✓ Backup exportado.');
+    renderConfig();
   }catch(e){
     console.error('Erro ao exportar backup', e);
     showToast('⚠ Não foi possível criar o backup.');
   }
 }
-async function importarBackupCompleto(file){
+function importarBackupCompleto(file){
   if (!file) return;
-  if (!confirm('Restaurar o backup substituirá todos os dados atuais do Mega Diário. Deseja continuar?')) return;
-  try{
-    const texto = await file.text();
-    const dados = JSON.parse(texto);
-    if (dados?.formato !== 'backup-completo') throw new Error('Formato de backup não suportado');
-    Object.entries(dados.dados||{}).forEach(([key, value]) => {
-      if (STORAGE_KEYS[key]) DB._write(STORAGE_KEYS[key], value);
-    });
-    showToast('✓ Backup restaurado. A página será recarregada.');
-    setTimeout(() => location.reload(), 700);
-  }catch(e){
-    console.error('Erro ao restaurar backup', e);
-    showToast('⚠ Backup inválido ou não foi possível concluir a restauração.');
-  }
+  confirmAction('Restaurar o backup substituirá todos os dados atuais do Mega Diário. Deseja continuar?', async () => {
+    try{
+      const texto = await file.text();
+      const dados = JSON.parse(texto);
+      if (dados?.formato !== 'backup-completo') throw new Error('Formato de backup não suportado');
+      Object.entries(dados.dados||{}).forEach(([key, value]) => {
+        if (!STORAGE_KEYS[key]) return;
+        // entidade sem nenhum dado no momento do backup: grava o "vazio"
+        // correto (array ou config padrão) em vez do literal null
+        const normalizado = value !== null ? value : (key === 'config' ? { theme:'dark', counters:{} } : []);
+        DB._write(STORAGE_KEYS[key], normalizado);
+      });
+      showToast('✓ Backup restaurado. A página será recarregada.');
+      setTimeout(() => location.reload(), 700);
+    }catch(e){
+      console.error('Erro ao restaurar backup', e);
+      showToast('⚠ Backup inválido ou não foi possível concluir a restauração.');
+    }
+  });
 }
 function limparTodosOsDados(){
   confirmAction('Isso apaga TODOS os dados do Mega Diário deste navegador. Tem certeza?', () => {
@@ -56,7 +63,8 @@ function renderConfig(){
         <button class="btn btn-ghost" id="cfgRestaurar">📥 Restaurar backup</button>
         <input type="file" id="cfgInputRestaurar" accept=".json,application/json" hidden>
       </div>
-      <p class="muted backup-warning">Guarde o arquivo exportado em um local seguro — ele contém todos os seus registros pessoais.</p>
+      <p class="muted backup-warning">${cfg.ultimoBackup ? `Último backup: ${timestampToBR(cfg.ultimoBackup)}` : 'Você ainda não fez nenhum backup.'}</p>
+      <p class="muted backup-warning">Guarde o arquivo exportado em um local seguro — ele contém todos os seus registros pessoais. Restaurar sempre substitui os dados atuais (não existe mesclagem automática, para evitar conflitos).</p>
     </div>
     <div class="panel">
       <div class="panel-head"><div><h2>Zona de risco</h2></div></div>

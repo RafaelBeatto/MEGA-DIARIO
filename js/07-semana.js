@@ -7,12 +7,18 @@ function getSemana(mondayIso){ return DB.getById('semanas', mondayIso); }
 function getOrCreateSemana(mondayIso){
   let semana = getSemana(mondayIso);
   if (!semana){
-    semana = { id: mondayIso, inicio: mondayIso, fim: addDaysISO(mondayIso,6), objetivos: [], revisao: null, planejamento: null, criadoEm: Date.now(), atualizadoEm: Date.now() };
+    semana = { id: mondayIso, inicio: mondayIso, fim: addDaysISO(mondayIso,6), objetivos: [], metasImportantesIds: [], revisao: null, planejamento: null, criadoEm: Date.now(), atualizadoEm: Date.now() };
     DB.insert('semanas', semana);
   }
   return semana;
 }
 function salvarSemana(mondayIso, patch){ getOrCreateSemana(mondayIso); return DB.update('semanas', mondayIso, patch); }
+function toggleMetaImportanteSemana(mondayIso, metaId){
+  const semana = getOrCreateSemana(mondayIso);
+  const atuais = semana.metasImportantesIds || [];
+  const novas = atuais.includes(metaId) ? atuais.filter(x=>x!==metaId) : [...atuais, metaId];
+  salvarSemana(mondayIso, {metasImportantesIds: novas});
+}
 
 function openFormObjetivoSemana(objetivoId){
   const semana = getOrCreateSemana(semanaAtualInicio);
@@ -24,14 +30,13 @@ function openFormObjetivoSemana(objetivoId){
     <div class="field full"><label for="ob_descricao">Descrição</label><textarea id="ob_descricao">${escapeHTML(objetivo?.descricao||'')}</textarea></div>
   </div><div class="modal-actions"><button type="button" class="btn btn-ghost" id="obCancelar">Cancelar</button><button type="submit" class="btn btn-primary">Salvar</button></div></form>`);
   document.getElementById('obCancelar').onclick = closeModal;
-  document.getElementById('formObjetivoSemana').addEventListener('submit', e => {
-    e.preventDefault();
+  onSubmitGuarded(document.getElementById('formObjetivoSemana'), () => {
     const titulo = document.getElementById('ob_titulo').value.trim(); if (!titulo) return;
-    const progresso = Math.max(0, Math.min(100, Number(document.getElementById('ob_progresso').value)||0));
+    const progresso = clamp(Number(document.getElementById('ob_progresso').value)||0, 0, 100);
     const dados = {titulo, prioridade: document.getElementById('ob_prioridade').value, progresso, descricao: document.getElementById('ob_descricao').value.trim(), status: progresso>=100?'Concluído':'Em andamento'};
     const objetivos = [...semana.objetivos];
     if (objetivo){ const idx = objetivos.findIndex(o=>o.id===objetivo.id); objetivos[idx] = {...objetivos[idx], ...dados}; }
-    else objetivos.push({id:'OBJ-'+Date.now(), ...dados});
+    else objetivos.push({id:uid('OBJ'), ...dados});
     salvarSemana(semanaAtualInicio, {objetivos});
     showToast('✓ Objetivo salvo.'); closeModal(); renderSemana();
   });
@@ -42,23 +47,31 @@ function excluirObjetivoSemana(objetivoId){
   showToast('Objetivo removido.'); renderSemana();
 }
 
-function renderSemana(){
+let semanaSubTab = 'planejamento';
+
+function renderSemanaPlanejamento(){
   const semana = getOrCreateSemana(semanaAtualInicio);
-  document.getElementById('semanaTitulo').textContent = tituloSemana(semanaAtualInicio);
   const dias = diasDaSemana(semanaAtualInicio);
   const sessoes = DB.getAll('sessoes').filter(s => mondayOf(s.data) === semanaAtualInicio);
   const tarefas = DB.getAll('tarefas').map(t=>({...t,_data:prazoTarefa(t).data})).filter(t => t._data && mondayOf(t._data) === semanaAtualInicio);
   const compromissos = itemsAgenda(dias[0], dias[6]).filter(i => i._origem === 'evento');
+  const ocorrenciasSemana = ocorrenciasRotinas(dias[0], dias[6]);
+  const metasImportantesIds = semana.metasImportantesIds || [];
+  const metasImportantes = metasImportantesIds.map(id => DB.getById('metas', id)).filter(Boolean);
+  const metasDisponiveis = DB.getAll('metas').filter(m => !metasImportantesIds.includes(m.id) && m.status !== 'Concluída');
 
   const box = document.getElementById('semanaConteudo');
   box.innerHTML = `
     <div class="panel">
       <div class="panel-head"><h2>🎯 Objetivos da semana</h2><button class="btn btn-sm btn-primary" id="semNovoObjetivo">＋ Objetivo</button></div>
-      ${semana.objetivos.length ? semana.objetivos.map(o => `
+      ${semana.objetivos.length ? semana.objetivos.map(o => {
+        const passada = semanaAtualInicio < mondayOf(todayISO());
+        const motivo = o.status!=='Concluído' ? motivoDoItem('objetivo', o.id, semanaAtualInicio) : null;
+        return `
         <div class="attn-item" data-obj="${o.id}"><div class="attn-dot" style="background:${o.status==='Concluído'?'var(--ok)':'var(--warn)'}"></div>
-          <div class="attn-main"><div class="attn-title">${escapeHTML(o.titulo)} ${badgeHTML(badgePrioridade(o.prioridade),o.prioridade)}</div><div class="attn-sub">${escapeHTML(o.descricao||'')} · Progresso: ${o.progresso||0}%</div></div>
-          <div class="activity-actions"><button class="btn btn-sm" data-act="editar">Editar</button><button class="btn btn-sm btn-danger" data-act="excluir">Excluir</button></div>
-        </div>`).join('') : '<p class="muted">Nenhum objetivo definido para esta semana ainda.</p>'}
+          <div class="attn-main"><div class="attn-title">${escapeHTML(o.titulo)} ${badgeHTML(badgePrioridade(o.prioridade),o.prioridade)}</div><div class="attn-sub">${escapeHTML(o.descricao||'')} · Progresso: ${o.progresso||0}%${motivo?`<br><em>❓ ${escapeHTML(motivo.motivo)}${motivo.motivoLivre?': '+escapeHTML(motivo.motivoLivre):''}</em>`:''}</div></div>
+          <div class="activity-actions">${(passada && o.status!=='Concluído')?`<button class="btn btn-sm" data-act="motivo">❓ ${motivo?'Editar motivo':'Motivo'}</button>`:''}<button class="btn btn-sm" data-act="editar">Editar</button><button class="btn btn-sm btn-danger" data-act="excluir">Excluir</button></div>
+        </div>`; }).join('') : '<p class="muted">Nenhum objetivo definido para esta semana ainda.</p>'}
     </div>
 
     <div class="panel">
@@ -86,6 +99,28 @@ function renderSemana(){
     </div>
 
     <div class="panel">
+      <div class="panel-head"><h2>🔄 Rotinas da semana</h2></div>
+      <div class="week-mini-grid">${dias.map(iso => {
+        const doDia = ocorrenciasSemana.filter(o => o.data === iso);
+        return `<div class="week-mini-day ${iso===todayISO()?'is-today':''}">
+          <div class="week-mini-day-head">${nomeDiaCurto(iso).slice(0,3)}<br><strong>${parseISODate(iso).getDate()}</strong></div>
+          <div class="week-mini-day-items">${doDia.map(o => `<button type="button" class="agenda-chip is-rotina ${rotinaConcluidaEm(o.rotinaId, iso)?'is-done':''}" data-rot="${o.rotinaId}" data-rot-dia="${iso}">${o.horario?o.horario+' ':''}${escapeHTML(o.titulo)}</button>`).join('') || '<span class="muted" style="font-size:11px">—</span>'}</div>
+        </div>`;
+      }).join('')}</div>
+      ${ocorrenciasSemana.length ? '<p class="muted" style="margin-top:8px;font-size:11.5px">Clique numa rotina para marcar/desmarcar como feita naquele dia.</p>' : '<p class="muted" style="margin-top:8px">Nenhuma rotina prevista para esta semana. Cadastre em Rotinas e ela aparece aqui automaticamente.</p>'}
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h2>🎯 Metas importantes desta semana</h2></div>
+      ${metasImportantes.length ? `<div class="activity-list">${metasImportantes.map(m => { const p = progressoMeta(m); return `
+        <div class="attn-item" data-meta-imp="${m.id}"><div class="attn-dot" style="background:${m.status==='Concluída'?'var(--ok)':'var(--primary)'}"></div>
+          <div class="attn-main"><div class="attn-title">${escapeHTML(m.titulo)}</div><div class="attn-sub">${p}% concluído${m.prazo?' · '+formatDateBR(m.prazo):''}</div></div>
+          <div class="activity-actions"><button class="btn btn-sm" data-act="abrir">Abrir</button><button class="btn btn-sm" data-act="remover">Remover da semana</button></div>
+        </div>`; }).join('')}</div>` : '<p class="muted">Nenhuma meta marcada como prioridade desta semana ainda.</p>'}
+      ${metasDisponiveis.length ? `<select class="input" id="semMetaAdicionar" style="margin-top:10px"><option value="">＋ Adicionar meta a esta semana...</option>${metasDisponiveis.map(m=>`<option value="${m.id}">${escapeHTML(m.titulo)}</option>`).join('')}</select>` : ''}
+    </div>
+
+    <div class="panel">
       <div class="panel-head"><h2>🗓️ Compromissos e eventos da semana</h2></div>
       ${compromissos.length ? `<div class="activity-list">${compromissos.map(c => `<div class="activity-row"><span class="activity-time">${formatDateBR(c.data).slice(0,5)} ${c.horarioInicio||''}</span><span>${agendaItemChip(c)}</span></div>`).join('')}</div>` : '<p class="muted">Nenhum compromisso cadastrado para esta semana. Registre na Agenda e ele aparece aqui automaticamente.</p>'}
     </div>`;
@@ -95,13 +130,58 @@ function renderSemana(){
     const id = el.dataset.obj;
     el.querySelector('[data-act="editar"]').onclick = () => openFormObjetivoSemana(id);
     el.querySelector('[data-act="excluir"]').onclick = () => confirmAction('Remover este objetivo?', () => excluirObjetivoSemana(id));
+    el.querySelector('[data-act="motivo"]')?.addEventListener('click', () => {
+      const o = semana.objetivos.find(x=>x.id===id);
+      abrirFormMotivo('objetivo', id, semanaAtualInicio, o.titulo, () => renderSemana());
+    });
   });
   box.querySelectorAll('[data-ses]').forEach(el => el.addEventListener('click', () => openFormSessaoEstudo(el.dataset.ses)));
   box.querySelectorAll('[data-tar]').forEach(el => el.addEventListener('click', () => openFormTarefa(el.dataset.tar)));
   box.querySelectorAll('[data-plan-estudo]').forEach(el => el.addEventListener('click', () => openFormSessaoEstudo(null, el.dataset.planEstudo, 'Planejada')));
   box.querySelectorAll('[data-plan-tarefa]').forEach(el => el.addEventListener('click', () => openFormTarefa(null, el.dataset.planTarefa)));
+  box.querySelectorAll('[data-rot]').forEach(el => el.addEventListener('click', () => { toggleRotinaConcluida(el.dataset.rot, el.dataset.rotDia); renderSemana(); }));
+  box.querySelectorAll('[data-meta-imp]').forEach(el => {
+    const metaId = el.dataset.metaImp;
+    el.querySelector('[data-act="abrir"]').onclick = () => abrirDetalheMeta(metaId);
+    el.querySelector('[data-act="remover"]').onclick = () => { toggleMetaImportanteSemana(semanaAtualInicio, metaId); renderSemana(); };
+  });
+  document.getElementById('semMetaAdicionar')?.addEventListener('change', (e) => {
+    if (!e.target.value) return;
+    toggleMetaImportanteSemana(semanaAtualInicio, e.target.value);
+    renderSemana();
+  });
   agendaBindChips(box, compromissos);
 }
+
+function renderSemanaPlanejadoRealizado(){
+  const cmp = planejadoRealizadoSemana(semanaAtualInicio);
+  const linhas = [
+    ['📚 Estudos', cmp.estudos],
+    ['✅ Tarefas', cmp.tarefas],
+    ['🔄 Rotinas', cmp.rotinas],
+    ['🗓️ Compromissos', cmp.compromissos]
+  ];
+  document.getElementById('semanaConteudo').innerHTML = `
+    <p class="muted" style="margin-bottom:14px">Um retrato da sua rotina real nesta semana — não é uma nota de desempenho.</p>
+    <div class="two-col">
+      <div class="panel">
+        <div class="panel-head"><h2>Semana planejada</h2></div>
+        <div class="stat-grid">${linhas.map(([l,v])=>`<div class="stat-card c-primary"><div class="stat-num">${v.planejado}</div><div class="stat-label">${l}</div></div>`).join('')}</div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Semana realizada</h2></div>
+        <div class="stat-grid">${linhas.map(([l,v])=>`<div class="stat-card c-ok"><div class="stat-num">${v.realizado}</div><div class="stat-label">${l}</div></div>`).join('')}</div>
+      </div>
+    </div>`;
+}
+
+function renderSemana(){
+  document.getElementById('semanaTitulo').textContent = tituloSemana(semanaAtualInicio);
+  document.querySelectorAll('#semanaSubTabs [data-subtab]').forEach(b => b.classList.toggle('is-active', b.dataset.subtab===semanaSubTab));
+  if (semanaSubTab === 'comparativo') renderSemanaPlanejadoRealizado();
+  else renderSemanaPlanejamento();
+}
+document.querySelectorAll('#semanaSubTabs [data-subtab]').forEach(b => b.addEventListener('click', () => { semanaSubTab = b.dataset.subtab; renderSemana(); }));
 document.getElementById('semanaPrev').addEventListener('click', () => { semanaAtualInicio = addDaysISO(semanaAtualInicio, -7); renderSemana(); });
 document.getElementById('semanaNext').addEventListener('click', () => { semanaAtualInicio = addDaysISO(semanaAtualInicio, 7); renderSemana(); });
 document.getElementById('semanaHojeBtn').addEventListener('click', () => { semanaAtualInicio = mondayOf(todayISO()); renderSemana(); });
@@ -109,12 +189,46 @@ document.getElementById('semanaHojeBtn').addEventListener('click', () => { seman
 /* ---------- fluxo guiado de domingo ---------- */
 const PERGUNTAS_REVISAO = [
   ['consegui','O que eu consegui fazer?'], ['pendente','O que ficou pendente?'], ['aprendi','O que eu aprendi?'],
-  ['deuCerto','O que deu certo?'], ['melhorar','O que preciso melhorar?'], ['levarProxima','O que preciso levar para a próxima semana?']
+  ['deuCerto','O que deu certo?'], ['melhorar','O que quero mudar na próxima semana?'], ['levarProxima','O que preciso levar para a próxima semana?'],
+  ['manter','O que quero manter na próxima semana?']
 ];
 const PERGUNTAS_PLANEJAMENTO = [
   ['objetivos','Quais são meus principais objetivos?'], ['estudar','O que preciso estudar?'], ['tarefas','Quais tarefas preciso fazer?'],
   ['compromissos','Quais compromissos já tenho?'], ['naoEsquecer','O que não posso esquecer?'], ['melhorar','O que quero melhorar nesta semana?']
 ];
+function resumoAutomaticoSemanaHTML(mondayIso){
+  const dias = diasDaSemana(mondayIso), ini = dias[0], fim = dias[6];
+  const semana = getSemana(mondayIso);
+  const cmp = planejadoRealizadoSemana(mondayIso);
+  const motivos = motivosNoPeriodo(ini, fim);
+  const registros = DB.getAll('registros').filter(r => r.data>=ini && r.data<=fim);
+  const importantes = registros.filter(r => ['Momento importante','Acontecimento'].includes(r.tipo)).slice(0,6);
+  const conquistas = registros.filter(r => r.tipo === 'Conquista').slice(0,6);
+  const problemas = registros.filter(r => r.tipo === 'Problema').slice(0,6);
+  const aprendizados = registros.filter(r => r.tipo === 'Aprendizado').slice(0,6);
+  const reflexoesSemana = DB.getAll('reflexoes').filter(r => r.data>=ini && r.data<=fim);
+  const objetivosPendentes = (semana?.objetivos||[]).filter(o=>o.status!=='Concluído');
+  const bloco = (label, html) => `<div class="detail-block"><div class="detail-label">${label}</div><div class="detail-value">${html}</div></div>`;
+  return `<div class="panel" style="margin-bottom:16px">
+    <div class="panel-head"><h2>📊 O que os dados mostram</h2></div>
+    <div class="stat-grid">
+      <div class="stat-card c-primary"><div class="stat-num">${cmp.estudos.realizado}/${cmp.estudos.planejado}</div><div class="stat-label">Estudos</div></div>
+      <div class="stat-card c-ok"><div class="stat-num">${cmp.tarefas.realizado}/${cmp.tarefas.planejado}</div><div class="stat-label">Tarefas</div></div>
+      <div class="stat-card c-warn"><div class="stat-num">${cmp.rotinas.realizado}/${cmp.rotinas.planejado}</div><div class="stat-label">Rotinas</div></div>
+      <div class="stat-card c-primary"><div class="stat-num">${cmp.compromissos.realizado}/${cmp.compromissos.planejado}</div><div class="stat-label">Compromissos</div></div>
+    </div>
+    ${objetivosPendentes.length ? bloco('Ficou pendente', objetivosPendentes.map(o=>escapeHTML(o.titulo)).join(', ')) : ''}
+    ${motivos.length ? bloco('Por que algumas coisas não aconteceram', motivos.map(m=>`${escapeHTML(m.motivo)}${m.motivoLivre?': '+escapeHTML(m.motivoLivre):''}`).join('<br>')) : ''}
+    ${importantes.length ? bloco('O que aconteceu de importante (do Diário)', importantes.map(r=>escapeHTML(r.titulo)).join('<br>')) : ''}
+    ${conquistas.length ? bloco('🏆 Conquistas', conquistas.map(r=>escapeHTML(r.titulo)).join('<br>')) : ''}
+    ${problemas.length ? bloco('⚠️ Problemas', problemas.map(r=>escapeHTML(r.titulo)).join('<br>')) : ''}
+    ${aprendizados.length ? bloco('O que você marcou como Aprendizado', aprendizados.map(r=>escapeHTML(r.titulo)).join('<br>')) : ''}
+    ${reflexoesSemana.length ? bloco('Reflexões da semana', reflexoesSemana.map(r => {
+      const resumo = r.textoLivre || Object.values(r.respostas||{})[0] || 'Sem conteúdo escrito.';
+      return `${formatDateBR(r.data)}: ${escapeHTML(resumo.slice(0,80))}${resumo.length>80?'…':''}`;
+    }).join('<br>')) : ''}
+  </div>`;
+}
 function abrirFluxoDomingo(){
   const semanaAtual = getOrCreateSemana(semanaAtualInicio);
   const proximaId = addDaysISO(semanaAtualInicio, 7);
@@ -123,6 +237,7 @@ function abrirFluxoDomingo(){
     <div class="diario-tabs" id="domingoTabs"><button class="diario-tab is-active" data-step="1">1. Revisão</button><button class="diario-tab" data-step="2">2. Planejamento</button></div>
     <form id="formDomingo">
       <div data-step-body="1"><p class="muted" style="margin-bottom:10px">Sobre a ${tituloSemana(semanaAtualInicio).toLowerCase()}, que está terminando:</p>
+        ${resumoAutomaticoSemanaHTML(semanaAtualInicio)}
         <div class="form-grid">${PERGUNTAS_REVISAO.map(([k,label]) => `<div class="field full"><label for="dom_rev_${k}">${label}</label><textarea id="dom_rev_${k}">${escapeHTML(semanaAtual.revisao?.[k]||'')}</textarea></div>`).join('')}</div>
       </div>
       <div data-step-body="2" hidden><p class="muted" style="margin-bottom:10px">Planejando a ${tituloSemana(proximaId).toLowerCase()}:</p>
@@ -143,8 +258,7 @@ function abrirFluxoDomingo(){
   document.getElementById('domVoltar').onclick = () => { passo = 1; atualizarPasso(); };
   document.querySelectorAll('#domingoTabs .diario-tab').forEach(t => t.addEventListener('click', () => { passo = Number(t.dataset.step); atualizarPasso(); }));
   document.getElementById('domCancelar').onclick = closeModal;
-  document.getElementById('formDomingo').addEventListener('submit', e => {
-    e.preventDefault();
+  onSubmitGuarded(document.getElementById('formDomingo'), () => {
     const revisao = {}; PERGUNTAS_REVISAO.forEach(([k]) => revisao[k] = document.getElementById(`dom_rev_${k}`).value.trim());
     const planejamento = {}; PERGUNTAS_PLANEJAMENTO.forEach(([k]) => planejamento[k] = document.getElementById(`dom_plan_${k}`).value.trim());
     salvarSemana(semanaAtualInicio, {revisao});

@@ -216,6 +216,8 @@ textarea{
 .activity-actions{ grid-column: 1/-1; display:flex; justify-content:flex-end; gap:6px; flex-wrap:wrap; padding-top:4px; border-top:1px solid var(--border); }
 .activity-day{ font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin: 14px 0 4px; }
 .activity-row{ display:flex; gap:10px; font-size:13px; padding: 6px 0; border-bottom: 1px dashed var(--border); align-items:center; }
+.timeline-row{ cursor:pointer; border-radius:4px; }
+.timeline-row:hover{ background: var(--surface-2); }
 .activity-time{ font-family: var(--font-mono); color: var(--muted); flex-shrink:0; width:50px; }
 
 .history-row{ background: var(--surface); border:1px solid var(--border); border-radius: var(--radius-sm); padding:10px 12px; font-size:13px; }
@@ -299,6 +301,106 @@ textarea{
 
 .help-content{ font-size:13.5px; line-height:1.5; }
 
+/* ---------------- meu dia: agora (próximo + foco lado a lado) ---------------- */
+.now-row{ display:flex; gap:16px; flex-wrap:wrap; }
+.now-row > div{ flex:1; min-width:240px; }
+.now-row .foco-panel, .now-row .proximo-panel{ height:100%; margin-bottom:0; box-sizing:border-box; }
+
+/* ---------------- meu dia: linha do dia (agenda + diário, cronológico) ---------------- */
+.linha-do-dia{ display:flex; flex-direction:column; }
+.linha-dia-item{
+  display:grid; grid-template-columns: 46px 22px 1fr auto; gap:10px; align-items:center;
+  padding:10px 4px; border-bottom:1px solid var(--border); cursor:pointer; border-radius:5px;
+}
+.linha-dia-item:last-child{ border-bottom:0; }
+.linha-dia-item:hover{ background: var(--surface-2); }
+.linha-dia-hora{ font-family: var(--font-mono); font-size:11.5px; color: var(--muted); }
+.linha-dia-icone{ font-size:15px; text-align:center; }
+.linha-dia-texto{ font-size:13px; min-width:0; line-height:1.35; }
+.linha-dia-texto strong{ font-weight:600; }
+.linha-dia-item.is-done .linha-dia-texto strong{ text-decoration:line-through; color:var(--muted); }
+.linha-dia-acao{ display:flex; gap:4px; flex-shrink:0; }
+.linha-dia-acao .btn-sm{ padding:5px 9px; }
+
+/* ---------------- meu dia: metas em destaque (tira horizontal) ---------------- */
+.metas-strip{ display:flex; gap:12px; overflow-x:auto; padding-bottom:2px; }
+.meta-chip{ flex:0 0 auto; width:200px; background: var(--surface-2); border:1px solid var(--border); border-radius: var(--radius-sm); padding:12px 14px; cursor:pointer; }
+.meta-chip:hover{ border-color: var(--primary); }
+.meta-chip-title{ font-size:12.5px; font-weight:600; margin-bottom:8px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.meta-chip .progress-bar{ height:6px; }
+.meta-chip-sub{ font-size:11px; color: var(--muted); margin-top:5px; }
+
+/* ---------------- dashboard V2 ---------------- */
+.dashboard-greeting{ margin-bottom:16px; }
+.greeting-row{ display:flex; justify-content:space-between; align-items:center; gap:16px; flex-wrap:wrap; }
+.greeting-title{ margin:0; font-size:24px; }
+.greeting-date{ margin:2px 0 0; text-transform:capitalize; }
+.greeting-context{ margin:4px 0 0; font-size:12.5px; }
+.streak-badge{ display:flex; align-items:center; gap:8px; background:var(--warn-soft); border:1px solid var(--warn); border-radius: var(--radius); padding:8px 14px; }
+.streak-fire{ font-size:22px; }
+.streak-badge div{ display:flex; flex-direction:column; line-height:1.1; }
+.streak-badge strong{ font-size:17px; font-family: var(--font-mono); color: var(--warn); }
+.streak-badge span{ font-size:10.5px; color: var(--muted); }
+.foco-panel{ cursor:pointer; border-left:3px solid var(--primary); margin-bottom:16px; }
+.foco-panel:hover{ background: var(--surface-2); }
+.foco-title{ font-size:16px; font-weight:700; margin-top:4px; }
+.progress-bar{ background: var(--surface-2); border-radius:6px; overflow:hidden; height:8px; }
+.progress-bar-fill{ height:100%; background: var(--primary); border-radius:6px; transition:width .25s ease; }
+.proximo-panel{ border-left-color: var(--warn); }
+.proximo-row{ display:flex; align-items:baseline; gap:10px; margin-top:4px; }
+.proximo-hora{ font-family: var(--font-mono); font-weight:700; font-size:18px; color: var(--warn); }
+.proximo-titulo{ font-size:15px; font-weight:600; }
+.proximo-contagem{ font-size:12px; margin-top:3px; }
+.empty-day-panel{ text-align:center; padding:32px 20px; }
+.empty-day-title{ font-size:17px; font-weight:700; margin:0 0 4px; }
+.empty-day-actions{ display:flex; flex-wrap:wrap; justify-content:center; gap:10px; margin-top:16px; }
+.dashboard-summary-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(130px,1fr)); gap:12px; margin-bottom:16px; }
+.dashboard-summary-grid .stat-num{ font-size:19px; }
+
+/* ---------------- gráfico de barras simples ---------------- */
+.bar-chart{ display:flex; align-items:flex-end; gap:10px; height:140px; margin: 4px 0 20px; }
+.bar-col{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; gap:4px; }
+.bar-track{ flex:1; width:100%; max-width:34px; display:flex; align-items:flex-end; }
+.bar-fill{ width:100%; background: var(--primary); border-radius:4px 4px 0 0; min-height:0; transition:height .3s ease; }
+.bar-fill.is-today{ background: var(--ok); }
+.bar-value{ font-size:10px; font-family: var(--font-mono); color: var(--muted); }
+.bar-label{ font-size:11px; color: var(--muted); text-transform:capitalize; }
+
+/* ---------------- sequência ---------------- */
+.streak-hero{ text-align:center; padding: 26px 10px; background: var(--warn-soft); border:1px solid var(--warn); border-radius: var(--radius); margin-bottom:18px; }
+.streak-hero-fire{ font-size:38px; }
+.streak-hero-num{ font-size:44px; font-weight:800; font-family: var(--font-mono); color: var(--warn); line-height:1.1; }
+.streak-hero-label{ color: var(--ink-soft); font-size:13px; }
+
+/* ---------------- sino de notificações ---------------- */
+.notif-btn{ position:relative; }
+.notif-badge{
+  position:absolute; top:-4px; right:-4px; background: var(--danger); color:#fff; border-radius:999px;
+  font-size:10px; font-weight:700; padding:1px 5px; min-width:16px; text-align:center; line-height:1.4;
+}
+.notif-dropdown{
+  position:fixed; width:310px; max-width:calc(100vw - 24px); max-height:70vh; overflow-y:auto; background: var(--surface);
+  border:1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); z-index:55; padding:6px;
+}
+.notif-item{
+  display:flex; align-items:center; gap:8px; width:100%; text-align:left; border:0; background:transparent; color: var(--ink);
+  padding:10px 8px; border-radius: var(--radius-sm); cursor:pointer; font-size:12.5px;
+}
+.notif-item:hover{ background: var(--surface-2); }
+.notif-dot{ width:7px; height:7px; border-radius:50%; background: var(--muted); flex-shrink:0; }
+.notif-item.is-urgente .notif-dot{ background: var(--danger); }
+.notif-item.is-atencao .notif-dot{ background: var(--warn); }
+.notif-item.is-info .notif-dot{ background: var(--primary); }
+.notif-empty{ padding:16px; text-align:center; color: var(--muted); font-size:13px; }
+
+/* ---------------- busca global ---------------- */
+.search-group{ margin-bottom:14px; }
+.search-group-head{ font-size:11.5px; text-transform:uppercase; letter-spacing:.04em; color: var(--muted); margin-bottom:6px; display:flex; justify-content:space-between; }
+mark{ background: var(--warn-soft); color: var(--warn); border-radius:3px; padding:0 2px; }
+
+/* ---------------- navegação inferior (mobile) ---------------- */
+.bottom-nav{ display:none; }
+
 /* ---------------- responsivo ---------------- */
 @media(max-width:900px){
   .two-col{ grid-template-columns: 1fr; }
@@ -322,8 +424,37 @@ textarea{
   .topbar{ flex-wrap:wrap; padding-top:4px; }
   .topbar-title{ order:1; width:100%; }
   .topbar-actions{ order:2; width:100%; justify-content:space-between; }
-  .main{ padding: 16px 14px 60px; }
+  .main{ padding: 16px 14px 84px; }
   .week-mini-grid{ grid-template-columns: repeat(2,1fr); }
   .mini-month-cell{ min-height:44px; font-size:10.5px; }
   .section-intro{ flex-direction:column; align-items:stretch; }
+  .bottom-nav{
+    display:flex; position:fixed; bottom:0; left:0; right:0; z-index:42; background: var(--surface);
+    border-top:1px solid var(--border); padding: 4px 2px calc(4px + env(safe-area-inset-bottom));
+  }
+  .bottom-nav-item{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:2px; border:0; background:transparent;
+    color: var(--muted); font-size:10px; padding:6px 2px; border-radius: var(--radius-sm); cursor:pointer;
+  }
+  .bottom-nav-item span{ font-size:19px; }
+  .bottom-nav-item.is-active{ color: var(--primary); }
+  .notif-dropdown{ right:12px !important; }
+  /* formulários: uma coluna, alvos de toque maiores e fonte >=16px
+     (evita o zoom automático do iOS ao focar um campo) */
+  .form-grid{ grid-template-columns: 1fr; }
+  .input, textarea, select.input{ font-size:16px; }
+  .btn{ min-height:40px; }
+  .btn-sm{ min-height:36px; }
+  .icon-btn{ width:42px; height:42px; }
+  .modal-body{ padding:16px; }
+  .modal-actions{ flex-wrap:wrap; }
+  .modal-actions .btn{ flex:1; justify-content:center; min-width:100px; }
+  /* chips das grades semanais (Estudos/Tarefas/Rotinas em Semana e Agenda):
+     alvo de toque mais confortável */
+  .agenda-chip{ padding:9px 10px; font-size:11.5px; min-height:34px; box-sizing:border-box; }
+  .week-mini-day-items{ gap:6px; }
+  /* meu dia: linha do dia com alvo de toque maior e colunas mais estreitas */
+  .linha-dia-item{ grid-template-columns: 40px 20px 1fr auto; padding:12px 4px; }
+  .linha-dia-acao .btn-sm{ min-height:34px; padding:6px 10px; }
+  .meta-chip{ width:170px; }
 }
